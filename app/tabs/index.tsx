@@ -320,6 +320,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
     alignItems: 'center',
+    gap: 8,
   },
   playerInput: {
     flex: 1,
@@ -328,10 +329,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginRight: 8,
+    height: 48,
   },
   addButton: {
-    padding: 8,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  emptyMessage: {
+    textAlign: 'center',
+    color: '#666666',
+    fontSize: 16,
+    fontStyle: 'italic',
   },
   endButton: {
     backgroundColor: '#FF3B30',
@@ -395,17 +410,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#1A1A1A',
-  },
-  emptyMessage: {
-    textAlign: 'center',
-    color: '#666666',
-    fontSize: 16,
-    fontStyle: 'italic',
-    marginTop: 16,
-  },
-  emptyStateContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
   },
 });

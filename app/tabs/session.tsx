@@ -80,7 +80,7 @@ export default function SessionScreen() {
             
             // Navigate to the home screen
             setTimeout(() => {
-              router.push('/(tabs)');
+              router.push('/tabs');
             }, 100);
           },
         },
@@ -105,7 +105,7 @@ export default function SessionScreen() {
         </Text>
         <Button 
           title="Go to Home" 
-          onPress={() => router.push('/(tabs)')}
+          onPress={() => router.push('/tabs')}
           style={styles.button}
         />
       </View>
@@ -137,29 +137,6 @@ export default function SessionScreen() {
           )
         )}
       </View>
-
-      {session.isActive && (
-        <View style={styles.addPlayerSection}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Add Player</Text>
-          <View style={styles.addPlayerRow}>
-            <Input
-              label="Player Name"
-              value={playerName}
-              onChangeText={setPlayerName}
-              placeholder="Enter player name"
-              error={error}
-              containerStyle={styles.playerInput}
-              editable={!isEndingSession}
-            />
-            <Button 
-              title="Add" 
-              onPress={handleAddPlayer}
-              style={styles.addButton}
-              disabled={isEndingSession}
-            />
-          </View>
-        </View>
-      )}
 
       <Text style={[styles.sectionTitle, { color: textColor }]}>
         {isEndingSession ? 'Return Pots' : 'Track Pots'}
@@ -206,27 +183,10 @@ const styles = StyleSheet.create({
   endButton: {
     marginLeft: 16,
   },
-  addPlayerSection: {
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
-  },
-  addPlayerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  playerInput: {
-    flex: 1,
-    marginRight: 8,
-  },
-  addButton: {
-    height: 48,
   },
   playersList: {
     flex: 1,
