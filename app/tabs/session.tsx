@@ -49,19 +49,16 @@ export default function SessionScreen() {
 
   const handleConfirmEndSession = () => {
     // Check if all players have entered their returned pots
-    const allPlayersHaveReturnedPots = session?.players.every(player => player.potsReturned >= 0);
+    const allPlayersHaveReturnedPots = session?.players.every(player => 
+      typeof player.potsReturned === 'number' && 
+      player.potsReturned >= 0 &&
+      player.potsReturned !== 0  // Ensure it's not the default value
+    );
     
     if (!allPlayersHaveReturnedPots) {
       Alert.alert('Error', 'All players must enter their returned pots before ending the session');
       return;
     }
-    
-    // Set default value of 0 for players who haven't returned any pots
-    session?.players.forEach(player => {
-      if (player.potsReturned === 0) {
-        updatePotsReturned(player.id, 0);
-      }
-    });
     
     Alert.alert(
       'Confirm End Session',
@@ -92,7 +89,11 @@ export default function SessionScreen() {
     if (!session || !isEndingSession) return false;
     
     // Check if all players have entered their returned pots
-    const allPlayersHaveReturnedPots = session.players.every(player => player.potsReturned >= 0);
+    const allPlayersHaveReturnedPots = session.players.every(player => 
+      typeof player.potsReturned === 'number' && 
+      player.potsReturned >= 0 &&
+      player.potsReturned !== 0  // Ensure it's not the default value
+    );
     
     return allPlayersHaveReturnedPots;
   };
@@ -116,7 +117,7 @@ export default function SessionScreen() {
     <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: textColor }]}>
-          {session.isActive ? 'Active Session' : 'Ended Session'} - Pot Value: ${session.potValue}
+          {session.isActive ? 'Active Session' : 'Ended Session'} - Pot Value: ${session.potValue.toFixed(2)}
         </Text>
         {session.isActive && (
           !isEndingSession ? (
@@ -155,7 +156,9 @@ export default function SessionScreen() {
               potValue={session.potValue}
               onUpdatePotsTaken={updatePotsTaken}
               onUpdatePotsReturned={updatePotsReturned}
+              onDeletePlayer={() => {}}
               isEndingSession={isEndingSession}
+              isReadOnly={!session.isActive}
             />
           ))
         )}

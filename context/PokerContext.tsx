@@ -151,7 +151,7 @@ export function PokerProvider({ children }: { children: ReactNode }) {
 
     const playerSummaries: PlayerSummary[] = currentSession.players.map(player => {
       const totalPotsTaken = player.potsTaken;
-      const totalPotsReturned = player.potsReturned;
+      const totalPotsReturned = player.potsReturned ?? 0;
       const totalPotsTakenValue = totalPotsTaken * currentSession.potValue;
       const totalPotsReturnedValue = totalPotsReturned * currentSession.potValue;
       const netBalance = totalPotsReturnedValue - totalPotsTakenValue;

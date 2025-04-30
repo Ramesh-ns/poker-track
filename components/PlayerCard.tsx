@@ -3,13 +3,16 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-nativ
 import { useColorScheme } from 'react-native';
 import { Player } from '../types/poker';
 import { Button } from './Button';
+import { Ionicons } from '@expo/vector-icons';
 
 interface PlayerCardProps {
   player: Player;
   potValue: number;
-  onUpdatePotsTaken: (playerId: string, potsTaken: number) => void;
-  onUpdatePotsReturned: (playerId: string, potsReturned: number) => void;
-  isEndingSession?: boolean;
+  onUpdatePotsTaken: (playerId: string, value: number) => void;
+  onUpdatePotsReturned: (playerId: string, value: number) => void;
+  onDeletePlayer: (playerId: string) => void;
+  isEndingSession: boolean;
+  isReadOnly?: boolean;
 }
 
 export function PlayerCard({ 
@@ -17,21 +20,71 @@ export function PlayerCard({
   potValue, 
   onUpdatePotsTaken, 
   onUpdatePotsReturned,
-  isEndingSession = false
+  onDeletePlayer,
+  isEndingSession,
+  isReadOnly = false 
 }: PlayerCardProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   
-  const textColor = isDark ? '#fff' : '#000';
-  const cardBackgroundColor = isDark ? '#2c2c2e' : '#f2f2f7';
-  const borderColor = isDark ? '#3a3a3c' : '#c7c7cc';
-  const inputBackgroundColor = isDark ? '#3a3a3c' : '#e5e5ea';
+  const textColor = isDark ? '#ffffff' : '#000000';
+  const cardBackgroundColor = isDark ? '#1c1c1e' : '#ffffff';
+  const borderColor = isDark ? '#38383a' : '#e5e5ea';
+  const buttonBackgroundColor = isDark ? '#2c2c2e' : '#f2f2f7';
+  const positiveColor = isDark ? '#32d74b' : '#34c759';
+  const negativeColor = isDark ? '#ff453a' : '#ff3b30';
+  const warningColor = isDark ? '#ffcc00' : '#ff9500';
   
-  const [potsReturnedInput, setPotsReturnedInput] = useState(player.potsReturned.toString());
+  const [potsReturnedInput, setPotsReturnedInput] = useState<string>(
+    player.potsReturned?.toString() ?? ''
+  );
 
-  React.useEffect(() => {
-    setPotsReturnedInput(player.potsReturned.toString());
-  }, [player.potsReturned]);
+  const isPotsReturnedValid = !isEndingSession || (
+    potsReturnedInput !== '' && 
+    !isNaN(parseFloat(potsReturnedInput)) && 
+    parseFloat(potsReturnedInput) >= 0
+  );
+
+  const calculateNetBalance = (potsTaken: number, potsReturned: number | undefined): number => {
+    return potsTaken - (potsReturned ?? 0);
+  };
+
+  const currentNetBalance = calculateNetBalance(player.potsTaken, player.potsReturned);
+
+  const handlePotsReturnedInputChange = (text: string) => {
+    setPotsReturnedInput(text);
+    if (text === '') {
+      onUpdatePotsReturned(player.id, 0);
+      return;
+    }
+    const numericValue = parseFloat(text);
+    if (!isNaN(numericValue) && numericValue >= 0) {
+      onUpdatePotsReturned(player.id, numericValue);
+    }
+  };
+
+  const handleDecimalIncrement = (decimal: number) => {
+    const currentValue = potsReturnedInput === '' ? 0 : parseFloat(potsReturnedInput);
+    const newValue = Math.floor(currentValue) + decimal;
+    onUpdatePotsReturned(player.id, newValue);
+    setPotsReturnedInput(newValue.toString());
+  };
+
+  const handleIncrementPotsReturned = () => {
+    const currentValue = parseFloat(potsReturnedInput) || 0;
+    const newValue = currentValue + 1;
+    setPotsReturnedInput(newValue.toString());
+    onUpdatePotsReturned(player.id, newValue);
+  };
+
+  const handleDecrementPotsReturned = () => {
+    const currentValue = parseFloat(potsReturnedInput) || 0;
+    if (currentValue > 0) {
+      const newValue = currentValue - 1;
+      setPotsReturnedInput(newValue.toString());
+      onUpdatePotsReturned(player.id, newValue);
+    }
+  };
 
   const handleIncrementPotsTaken = () => {
     onUpdatePotsTaken(player.id, player.potsTaken + 1);
@@ -43,135 +96,132 @@ export function PlayerCard({
     }
   };
 
-  const handleIncrementPotsReturned = () => {
-    onUpdatePotsReturned(player.id, player.potsReturned + 1);
-    setPotsReturnedInput((player.potsReturned + 1).toString());
-  };
-
-  const handleDecrementPotsReturned = () => {
-    if (player.potsReturned > 0) {
-      onUpdatePotsReturned(player.id, player.potsReturned - 1);
-      setPotsReturnedInput((player.potsReturned - 1).toString());
-    }
-  };
-
-  const handleDecimalIncrement = (decimal: number) => {
-    const newValue = Math.floor(player.potsReturned) + decimal;
-    onUpdatePotsReturned(player.id, newValue);
-    setPotsReturnedInput(newValue.toString());
-  };
-
-  const handlePotsReturnedInputChange = (text: string) => {
-    setPotsReturnedInput(text);
-    const numericValue = parseFloat(text);
-    if (!isNaN(numericValue) && numericValue >= 0) {
-      onUpdatePotsReturned(player.id, numericValue);
-    }
+  const handleDeletePlayer = () => {
+    onDeletePlayer(player.id);
   };
 
   const totalPotsTakenValue = player.potsTaken * potValue;
-  const totalPotsReturnedValue = player.potsReturned * potValue;
+  const totalPotsReturnedValue = (player.potsReturned ?? 0) * potValue;
   const netBalance = totalPotsReturnedValue - totalPotsTakenValue;
+  const isProfit = totalPotsReturnedValue > totalPotsTakenValue;
 
   return (
-    <View style={[styles.card, { backgroundColor: cardBackgroundColor, borderColor }]}>
-      <Text style={[styles.playerName, { color: textColor }]}>{player.name}</Text>
-      
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: textColor }]}>Pots Taken:</Text>
-          {isEndingSession ? (
-            <Text style={[styles.valueText, { color: textColor }]}>
-              {player.potsTaken} (${totalPotsTakenValue.toFixed(2)})
-            </Text>
-          ) : (
-            <>
-              <View style={styles.counterContainer}>
-                <TouchableOpacity 
-                  onPress={handleDecrementPotsTaken}
-                  style={[styles.counterButton, { borderColor }]}
-                  disabled={player.potsTaken === 0}
-                >
-                  <Text style={[styles.counterButtonText, { color: textColor }]}>-</Text>
-                </TouchableOpacity>
-                <Text style={[styles.counterValue, { color: textColor }]}>{player.potsTaken}</Text>
-                <TouchableOpacity 
-                  onPress={handleIncrementPotsTaken}
-                  style={[styles.counterButton, { borderColor }]}
-                >
-                  <Text style={[styles.counterButtonText, { color: textColor }]}>+</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.valueText, { color: textColor }]}>
-                ${totalPotsTakenValue.toFixed(2)}
-              </Text>
-            </>
-          )}
-        </View>
-
-        {isEndingSession && (
-          <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: textColor }]}>Pots Returned:</Text>
-            <View style={styles.counterContainer}>
-              <TouchableOpacity 
-                onPress={handleDecrementPotsReturned}
-                style={[styles.counterButton, { borderColor }]}
-                disabled={player.potsReturned === 0}
-              >
-                <Text style={[styles.counterButtonText, { color: textColor }]}>-</Text>
-              </TouchableOpacity>
-              <TextInput
-                style={[styles.potsReturnedInput, { 
-                  backgroundColor: inputBackgroundColor, 
-                  color: textColor,
-                  borderColor
-                }]}
-                value={potsReturnedInput}
-                onChangeText={handlePotsReturnedInputChange}
-                keyboardType="numeric"
-                placeholder="0.0"
-                placeholderTextColor={isDark ? '#8e8e93' : '#c7c7cc'}
-              />
-              <TouchableOpacity 
-                onPress={handleIncrementPotsReturned}
-                style={[styles.counterButton, { borderColor }]}
-              >
-                <Text style={[styles.counterButtonText, { color: textColor }]}>+</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.decimalButtonsContainer}>
-              {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map((decimal) => (
-                <TouchableOpacity
-                  key={decimal}
-                  style={[styles.decimalButton, { borderColor }]}
-                  onPress={() => handleDecimalIncrement(decimal)}
-                >
-                  <Text style={[styles.decimalButtonText, { color: textColor }]}>
-                    +{decimal}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={[styles.valueText, { color: textColor }]}>
-              ${totalPotsReturnedValue.toFixed(2)}
-            </Text>
-          </View>
+    <View style={[
+      styles.card, 
+      { 
+        backgroundColor: cardBackgroundColor, 
+        borderColor: isEndingSession && !isPotsReturnedValid ? warningColor : borderColor 
+      }
+    ]}>
+      <View style={styles.header}>
+        <Text style={[styles.playerName, { color: textColor }]}>{player.name}</Text>
+        {!isReadOnly && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeletePlayer}
+          >
+            <Ionicons name="trash-outline" size={20} color={negativeColor} />
+          </TouchableOpacity>
         )}
       </View>
 
-      {isEndingSession && (
-        <View style={styles.balanceContainer}>
-          <Text style={[styles.balanceLabel, { color: textColor }]}>Net Balance:</Text>
-          <Text 
-            style={[
-              styles.balanceValue, 
-              { color: netBalance >= 0 ? (isDark ? '#32d74b' : '#34c759') : (isDark ? '#ff453a' : '#ff3b30') }
-            ]}
-          >
-            ${Math.abs(netBalance).toFixed(2)} {netBalance >= 0 ? 'profit' : 'loss'}
+      <View style={styles.potsContainer}>
+        <View style={styles.potSection}>
+          <Text style={[styles.potLabel, { color: textColor }]}>Pots Taken</Text>
+          {!isReadOnly ? (
+            <View style={styles.potControls}>
+              <TouchableOpacity
+                style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                onPress={handleDecrementPotsTaken}
+              >
+                <Ionicons name="remove" size={20} color={textColor} />
+              </TouchableOpacity>
+              <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken}</Text>
+              <TouchableOpacity
+                style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                onPress={handleIncrementPotsTaken}
+              >
+                <Ionicons name="add" size={20} color={textColor} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken}</Text>
+          )}
+          <Text style={[styles.potAmount, { color: textColor }]}>
+            ${totalPotsTakenValue.toFixed(2)}
           </Text>
         </View>
-      )}
+
+        <View style={styles.potSection}>
+          <View style={styles.potLabelContainer}>
+            <Text style={[styles.potLabel, { color: textColor }]}>Pots Returned</Text>
+            {isEndingSession && !isPotsReturnedValid && (
+              <Text style={[styles.warningText, { color: warningColor }]}>
+                Required
+              </Text>
+            )}
+          </View>
+          {!isReadOnly ? (
+            <>
+              <View style={styles.potControls}>
+                <TouchableOpacity
+                  style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                  onPress={handleDecrementPotsReturned}
+                >
+                  <Ionicons name="remove" size={20} color={textColor} />
+                </TouchableOpacity>
+                <TextInput
+                  style={[
+                    styles.potsReturnedInput, 
+                    { 
+                      color: textColor, 
+                      borderColor: isEndingSession && !isPotsReturnedValid ? warningColor : borderColor 
+                    }
+                  ]}
+                  value={potsReturnedInput}
+                  onChangeText={handlePotsReturnedInputChange}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                />
+                <TouchableOpacity
+                  style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                  onPress={handleIncrementPotsReturned}
+                >
+                  <Ionicons name="add" size={20} color={textColor} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.decimalButtonsContainer}>
+                {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map(decimal => (
+                  <TouchableOpacity
+                    key={decimal}
+                    style={[styles.decimalButton, { backgroundColor: buttonBackgroundColor, borderColor }]}
+                    onPress={() => handleDecimalIncrement(decimal)}
+                  >
+                    <Text style={[styles.decimalButtonText, { color: textColor }]}>
+                      +{decimal}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          ) : (
+            <Text style={[styles.potValue, { color: textColor }]}>{player.potsReturned}</Text>
+          )}
+          <Text style={[styles.potAmount, { color: textColor }]}>
+            ${totalPotsReturnedValue.toFixed(2)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.netBalanceContainer}>
+        <Text style={[styles.netBalanceLabel, { color: textColor }]}>Net Balancee</Text>
+        <Text style={[
+          styles.netBalanceValue,
+          { color: isProfit ? positiveColor : negativeColor }
+        ]}>
+          ${Math.abs(netBalance).toFixed(2)} {isProfit ? 'profit' : 'loss'}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -264,6 +314,74 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   balanceValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  potsContainer: {
+    marginBottom: 12,
+  },
+  potSection: {
+    marginBottom: 8,
+  },
+  potLabel: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  potControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  potButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+  },
+  potValue: {
+    fontSize: 18,
+    marginHorizontal: 12,
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  potAmount: {
+    fontSize: 16,
+  },
+  potLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  warningText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  netBalanceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#3a3a3c',
+  },
+  netBalanceLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  netBalanceValue: {
     fontSize: 16,
     fontWeight: 'bold',
   },

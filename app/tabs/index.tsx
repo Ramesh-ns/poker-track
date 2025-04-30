@@ -14,6 +14,7 @@ import { SessionSummary } from '../../components/SessionSummary';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Session, Player } from '../../types/poker';
+import { router } from 'expo-router';
 
 export default function HomeScreen() {
   const { 
@@ -53,17 +54,39 @@ export default function HomeScreen() {
   const handleEndSession = () => {
     if (!session) return;
     
-    const allPotsReturned = session.players.every(player => player.potsReturned > 0);
+    // Check if all players have valid pots returned values
+    const allPotsReturned = session.players.every(player => {
+      // Check if potsReturned is a valid number
+      return player.potsReturned >= 0;
+    });
+    
     if (!allPotsReturned) {
       Alert.alert(
         'Cannot End Session',
-        'All players must return their pots before ending the session.',
+        'Please enter pots returned (0 or more) for all players before ending the session.',
         [{ text: 'OK' }]
       );
       return;
     }
     
-    endSession();
+    // Show confirmation dialog
+    Alert.alert(
+      'End Session',
+      'Are you sure you want to end this session?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'End Session',
+          style: 'destructive',
+          onPress: () => {
+            endSession();
+          },
+        },
+      ]
+    );
   };
 
   const formatDate = (date: Date) => {
@@ -83,12 +106,19 @@ export default function HomeScreen() {
   };
 
   const renderPreviousSession = (session: Session) => {
-    const totalPots = session.players.reduce((sum: number, player: Player) => sum + player.potsTaken, 0);
-    const totalReturned = session.players.reduce((sum: number, player: Player) => sum + player.potsReturned, 0);
-    const netBalance = totalPots - totalReturned;
+    const totalPots = session.players.reduce((sum: number, player: Player) => 
+      sum + player.potsTaken, 0);
+    const totalReturned = session.players.reduce((sum: number, player: Player) => 
+      sum + player.potsReturned, 0);
+    const netBalance = (totalReturned - totalPots) * session.potValue;
+    const isProfit = totalReturned > totalPots;
     
     return (
-      <View key={session.id} style={styles.sessionCard}>
+      <TouchableOpacity 
+        key={session.id} 
+        style={styles.sessionCard}
+        onPress={() => router.push(`/tabs/review?sessionId=${session.id}`)}
+      >
         <View style={styles.sessionHeader}>
           <Text style={styles.sessionDate}>
             {formatDate(session.startTime)}
@@ -109,19 +139,19 @@ export default function HomeScreen() {
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Total Pots:</Text>
-            <Text style={styles.detailValue}>${totalPots.toFixed(2)}</Text>
+            <Text style={styles.detailValue}>{Math.floor(totalPots)}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Net Balance:</Text>
             <Text style={[
               styles.detailValue,
-              { color: netBalance >= 0 ? '#4CAF50' : '#F44336' }
+              { color: isProfit ? '#4CAF50' : '#F44336' }
             ]}>
-              <Text>${Math.abs(netBalance).toFixed(2)}{' '}{netBalance >= 0 ? 'profit' : 'loss'}</Text>
+              ${Math.abs(netBalance).toFixed(2)} {isProfit ? 'profit' : 'loss'}
             </Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -209,6 +239,7 @@ export default function HomeScreen() {
                 onUpdatePotsReturned={(playerId, potsReturned) => {
                   updatePotsReturned(playerId, potsReturned);
                 }}
+                onDeletePlayer={() => {}}
                 isEndingSession={false}
               />
             ))
