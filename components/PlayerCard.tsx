@@ -36,7 +36,9 @@ export function PlayerCard({
   const warningColor = isDark ? '#ffcc00' : '#ff9500';
   
   const [potsReturnedInput, setPotsReturnedInput] = useState<string>(
-    player.potsReturned?.toString() ?? ''
+    (player.potsReturned !== undefined && player.potsReturned !== null) 
+      ? player.potsReturned.toString() 
+      : ''
   );
 
   const isPotsReturnedValid = !isEndingSession || (
@@ -136,7 +138,7 @@ export function PlayerCard({
               >
                 <Ionicons name="remove" size={20} color={textColor} />
               </TouchableOpacity>
-              <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken}</Text>
+              <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
               <TouchableOpacity
                 style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
                 onPress={handleIncrementPotsTaken}
@@ -145,10 +147,10 @@ export function PlayerCard({
               </TouchableOpacity>
             </View>
           ) : (
-            <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken}</Text>
+            <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
           )}
           <Text style={[styles.potAmount, { color: textColor }]}>
-            ${totalPotsTakenValue.toFixed(2)}
+            {'$' + totalPotsTakenValue.toFixed(2)}
           </Text>
         </View>
 
@@ -198,28 +200,28 @@ export function PlayerCard({
                     onPress={() => handleDecimalIncrement(decimal)}
                   >
                     <Text style={[styles.decimalButtonText, { color: textColor }]}>
-                      +{decimal}
+                      +{decimal.toString()}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </>
           ) : (
-            <Text style={[styles.potValue, { color: textColor }]}>{player.potsReturned}</Text>
+            <Text style={[styles.potValue, { color: textColor }]}>{(player.potsReturned ?? 0).toString()}</Text>
           )}
           <Text style={[styles.potAmount, { color: textColor }]}>
-            ${totalPotsReturnedValue.toFixed(2)}
+            {'$' + totalPotsReturnedValue.toFixed(2)}
           </Text>
         </View>
       </View>
 
       <View style={styles.netBalanceContainer}>
-        <Text style={[styles.netBalanceLabel, { color: textColor }]}>Net Balancee</Text>
+        <Text style={[styles.netBalanceLabel, { color: textColor }]}>Net Balance</Text>
         <Text style={[
           styles.netBalanceValue,
           { color: isProfit ? positiveColor : negativeColor }
         ]}>
-          ${Math.abs(netBalance).toFixed(2)} {isProfit ? 'profit' : 'loss'}
+          {'$' + Math.abs(netBalance).toFixed(2)} {isProfit ? 'profit' : 'loss'}
         </Text>
       </View>
     </View>

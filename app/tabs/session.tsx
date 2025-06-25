@@ -116,9 +116,14 @@ export default function SessionScreen() {
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: textColor }]}>
-          {session.isActive ? 'Active Session' : 'Ended Session'} - Pot Value: ${session.potValue.toFixed(2)}
-        </Text>
+        <View style={styles.titleContainer}>
+          <Text style={[styles.title, { color: textColor }]}>
+            {session.isActive ? 'Active Session' : 'Ended Session'}
+          </Text>
+          <Text style={[styles.title, { color: textColor }]}>
+            {' - Pot Value: $' + session.potValue.toFixed(2)}
+          </Text>
+        </View>
         {session.isActive && (
           !isEndingSession ? (
             <Button 
@@ -178,10 +183,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flex: 1,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    flex: 1,
   },
   endButton: {
     marginLeft: 16,

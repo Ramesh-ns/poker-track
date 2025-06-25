@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -30,7 +30,15 @@ export default function HomeScreen() {
   const [playerName, setPlayerName] = useState('');
   const [error, setError] = useState('');
 
+  // Debug logging
+  useEffect(() => {
+    console.log('HomeScreen rendered');
+    console.log('Session:', session);
+    console.log('Previous sessions:', previousSessions);
+  }, [session, previousSessions]);
+
   const handleStartSession = () => {
+    console.log('Starting session with pot value:', potValue);
     const value = parseFloat(potValue);
     if (isNaN(value) || value <= 0) {
       setError('Please enter a valid pot value');
@@ -42,6 +50,7 @@ export default function HomeScreen() {
   };
 
   const handleAddPlayer = () => {
+    console.log('Adding player:', playerName);
     if (!playerName.trim()) {
       setError('Please enter a player name');
       return;
@@ -52,6 +61,7 @@ export default function HomeScreen() {
   };
 
   const handleEndSession = () => {
+    console.log('Ending session');
     if (!session) return;
     
     // Check if all players have valid pots returned values
@@ -102,7 +112,7 @@ export default function HomeScreen() {
     const duration = endTime.getTime() - startTime.getTime();
     const hours = Math.floor(duration / (1000 * 60 * 60));
     const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}m`;
+    return hours.toString() + 'h ' + minutes.toString() + 'm';
   };
 
   const renderPreviousSession = (session: Session) => {
@@ -117,7 +127,10 @@ export default function HomeScreen() {
       <TouchableOpacity 
         key={session.id} 
         style={styles.sessionCard}
-        onPress={() => router.push(`/tabs/review?sessionId=${session.id}`)}
+        onPress={() => router.push({
+          pathname: '/tabs/review',
+          params: { sessionId: session.id }
+        })}
       >
         <View style={styles.sessionHeader}>
           <Text style={styles.sessionDate}>
@@ -131,15 +144,15 @@ export default function HomeScreen() {
         <View style={styles.sessionDetails}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Pot Value:</Text>
-            <Text style={styles.detailValue}>${session.potValue.toFixed(2)}</Text>
+            <Text style={styles.detailValue}>{'$' + session.potValue.toFixed(2)}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Players:</Text>
-            <Text style={styles.detailValue}>{session.players.length}</Text>
+            <Text style={styles.detailValue}>{session.players.length.toString()}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Total Pots:</Text>
-            <Text style={styles.detailValue}>{Math.floor(totalPots)}</Text>
+            <Text style={styles.detailValue}>{Math.floor(totalPots).toString()}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Net Balance:</Text>
@@ -147,7 +160,7 @@ export default function HomeScreen() {
               styles.detailValue,
               { color: isProfit ? '#4CAF50' : '#F44336' }
             ]}>
-              ${Math.abs(netBalance).toFixed(2)} {isProfit ? 'profit' : 'loss'}
+              {'$' + Math.abs(netBalance).toFixed(2)} {isProfit ? 'profit' : 'loss'}
             </Text>
           </View>
         </View>
@@ -157,7 +170,7 @@ export default function HomeScreen() {
 
   if (!session) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.formContainer}>
             <Text style={styles.title}>Start New Session</Text>
@@ -191,18 +204,18 @@ export default function HomeScreen() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.activeSessionContainer}>
           <View style={styles.sessionInfo}>
             <Text style={styles.sessionTitle}>Active Session</Text>
             <Text style={styles.potValue}>
-              <Text>Pot Value: ${session.potValue.toFixed(2)}</Text>
+              {'Pot Value: $' + session.potValue.toFixed(2)}
             </Text>
           </View>
 
@@ -262,7 +275,7 @@ export default function HomeScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

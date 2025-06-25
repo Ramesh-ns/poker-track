@@ -25,7 +25,7 @@ export function SessionSummary({ summary }: SessionSummaryProps) {
       <View style={[styles.header, { backgroundColor: cardBackgroundColor, borderColor }]}>
         <Text style={[styles.title, { color: textColor }]}>Session Summary</Text>
         <Text style={[styles.potValue, { color: textColor }]}>
-          Pot Value: ${summary.potValue.toFixed(2)}
+          {'Pot Value: $' + summary.potValue.toFixed(2)}
         </Text>
       </View>
 
@@ -41,14 +41,14 @@ export function SessionSummary({ summary }: SessionSummaryProps) {
               <View style={styles.statItem}>
                 <Text style={[styles.statLabel, { color: textColor }]}>Pots Taken:</Text>
                 <Text style={[styles.statValue, { color: textColor }]}>
-                  {player.totalPotsTaken} (${player.totalPotsTakenValue.toFixed(2)})
+                  {player.totalPotsTaken.toString()} ({'$' + player.totalPotsTakenValue.toFixed(2)})
                 </Text>
               </View>
               
               <View style={styles.statItem}>
                 <Text style={[styles.statLabel, { color: textColor }]}>Pots Returned:</Text>
                 <Text style={[styles.statValue, { color: textColor }]}>
-                  {player.totalPotsReturned} (${player.totalPotsReturnedValue.toFixed(2)})
+                  {player.totalPotsReturned.toString()} ({'$' + player.totalPotsReturnedValue.toFixed(2)})
                 </Text>
               </View>
             </View>
@@ -61,7 +61,7 @@ export function SessionSummary({ summary }: SessionSummaryProps) {
                   { color: player.netBalance >= 0 ? positiveColor : negativeColor }
                 ]}
               >
-                ${Math.abs(player.netBalance).toFixed(2)} {player.netBalance >= 0 ? 'profit' : 'loss'}
+                {'$' + Math.abs(player.netBalance).toFixed(2)} {player.netBalance >= 0 ? 'profit' : 'loss'}
               </Text>
             </View>
           </View>

@@ -40,7 +40,7 @@ export default function ReviewScreen() {
     const duration = endTime.getTime() - startTime.getTime();
     const hours = Math.floor(duration / (1000 * 60 * 60));
     const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}m`;
+    return hours.toString() + 'h ' + minutes.toString() + 'm';
   };
 
   return (
@@ -56,7 +56,7 @@ export default function ReviewScreen() {
 
       <View style={styles.sessionInfo}>
         <Text style={[styles.potValue, { color: textColor }]}>
-          Pot Value: ${session.potValue.toFixed(2)}
+          {'Pot Value: $' + session.potValue.toFixed(2)}
         </Text>
       </View>
 
