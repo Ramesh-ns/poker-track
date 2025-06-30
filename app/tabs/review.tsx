@@ -36,7 +36,10 @@ export default function ReviewScreen() {
     }).format(date);
   };
 
-  const formatDuration = (startTime: Date, endTime: Date) => {
+  const formatDuration = (startTime: Date, endTime: Date | null) => {
+    if (!endTime) {
+      return 'Active';
+    }
     const duration = endTime.getTime() - startTime.getTime();
     const hours = Math.floor(duration / (1000 * 60 * 60));
     const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
@@ -50,7 +53,7 @@ export default function ReviewScreen() {
           Session Review
         </Text>
         <Text style={[styles.date, { color: textColor }]}>
-          {formatDate(session.startTime)} - {formatDuration(session.startTime, session.endTime!)}
+          {formatDate(session.startTime)} - {formatDuration(session.startTime, session.endTime)}
         </Text>
       </View>
 

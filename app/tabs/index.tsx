@@ -108,7 +108,10 @@ export default function HomeScreen() {
     }).format(date);
   };
 
-  const formatDuration = (startTime: Date, endTime: Date) => {
+  const formatDuration = (startTime: Date, endTime: Date | null) => {
+    if (!endTime) {
+      return 'Active';
+    }
     const duration = endTime.getTime() - startTime.getTime();
     const hours = Math.floor(duration / (1000 * 60 * 60));
     const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
@@ -137,7 +140,7 @@ export default function HomeScreen() {
             {formatDate(session.startTime)}
           </Text>
           <Text style={styles.sessionDuration}>
-            {formatDuration(session.startTime, session.endTime!)}
+            {formatDuration(session.startTime, session.endTime)}
           </Text>
         </View>
         
