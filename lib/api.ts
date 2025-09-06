@@ -35,7 +35,8 @@ export async function fetchPlayers(sessionId: string) {
   const { data, error } = await supabase
     .from('players')
     .select('*')
-    .eq('session_id', sessionId);
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
   if (error) throw error;
   return data;
 }
