@@ -5,9 +5,10 @@ import { SessionSummary as SessionSummaryType, PlayerSummary } from '../types/po
 
 interface SessionSummaryProps {
   summary: SessionSummaryType;
+  potMode?: 'fixed' | 'direct';
 }
 
-export function SessionSummary({ summary }: SessionSummaryProps) {
+export function SessionSummary({ summary, potMode = 'fixed' }: SessionSummaryProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   
@@ -25,7 +26,10 @@ export function SessionSummary({ summary }: SessionSummaryProps) {
       <View style={[styles.header, { backgroundColor: cardBackgroundColor, borderColor }]}>
         <Text style={[styles.title, { color: textColor }]}>Session Summary</Text>
         <Text style={[styles.potValue, { color: textColor }]}>
-          {'Pot Value: $' + summary.potValue.toFixed(2)}
+          {potMode === 'direct' 
+            ? 'Direct Dollar Mode'
+            : `Pot Value: $${summary.potValue.toFixed(2)}`
+          }
         </Text>
       </View>
 
@@ -39,16 +43,26 @@ export function SessionSummary({ summary }: SessionSummaryProps) {
             
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: textColor }]}>Pots Taken:</Text>
+                <Text style={[styles.statLabel, { color: textColor }]}>
+                  {potMode === 'direct' ? 'Amount Taken:' : 'Pots Taken:'}
+                </Text>
                 <Text style={[styles.statValue, { color: textColor }]}>
-                  {player.totalPotsTaken.toString()} ({'$' + player.totalPotsTakenValue.toFixed(2)})
+                  {potMode === 'direct' 
+                    ? `$${player.totalPotsTakenValue.toFixed(2)}`
+                    : `${player.totalPotsTaken.toString()} ($${player.totalPotsTakenValue.toFixed(2)})`
+                  }
                 </Text>
               </View>
               
               <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: textColor }]}>Pots Returned:</Text>
+                <Text style={[styles.statLabel, { color: textColor }]}>
+                  {potMode === 'direct' ? 'Amount Returned:' : 'Pots Returned:'}
+                </Text>
                 <Text style={[styles.statValue, { color: textColor }]}>
-                  {player.totalPotsReturned.toString()} ({'$' + player.totalPotsReturnedValue.toFixed(2)})
+                  {potMode === 'direct' 
+                    ? `$${player.totalPotsReturnedValue.toFixed(2)}`
+                    : `${player.totalPotsReturned.toString()} ($${player.totalPotsReturnedValue.toFixed(2)})`
+                  }
                 </Text>
               </View>
             </View>

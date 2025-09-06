@@ -121,7 +121,10 @@ export default function SessionScreen() {
             {session.sessionName}
           </Text>
           <Text style={[styles.subtitle, { color: textColor }]}>
-            {session.isActive ? 'Active Session' : 'Ended Session'} - Pot Value: ${session.potValue.toFixed(2)}
+            {session.isActive ? 'Active Session' : 'Ended Session'} - {session.potMode === 'direct' 
+              ? 'Direct Dollar Mode'
+              : `Pot Value: $${session.potValue.toFixed(2)}`
+            }
           </Text>
         </View>
         {session.isActive && (
@@ -159,6 +162,7 @@ export default function SessionScreen() {
               key={player.id}
               player={player}
               potValue={session.potValue}
+              potMode={session.potMode}
               onUpdatePotsTaken={updatePotsTaken}
               onUpdatePotsReturned={updatePotsReturned}
               onDeletePlayer={() => {}}

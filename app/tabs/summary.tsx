@@ -7,15 +7,26 @@ import { SessionSummary } from '../../components/SessionSummary';
 import { Session, SessionSummary as SessionSummaryType } from '../../types/poker';
 
 function transformSessionToSummary(session: Session): SessionSummaryType {
-  const playerSummaries = session.players.map(player => ({
-    playerId: player.id,
-    playerName: player.name,
-    totalPotsTaken: player.potsTaken,
-    totalPotsReturned: player.potsReturned,
-    totalPotsTakenValue: player.potsTaken * session.potValue,
-    totalPotsReturnedValue: player.potsReturned * session.potValue,
-    netBalance: (player.potsTaken - player.potsReturned) * session.potValue
-  }));
+  const playerSummaries = session.players.map(player => {
+    // Calculate values based on pot mode
+    const totalPotsTakenValue = session.potMode === 'direct' 
+      ? player.potsTaken 
+      : player.potsTaken * session.potValue;
+    const totalPotsReturnedValue = session.potMode === 'direct'
+      ? player.potsReturned
+      : player.potsReturned * session.potValue;
+    const netBalance = totalPotsReturnedValue - totalPotsTakenValue;
+
+    return {
+      playerId: player.id,
+      playerName: player.name,
+      totalPotsTaken: player.potsTaken,
+      totalPotsReturned: player.potsReturned,
+      totalPotsTakenValue,
+      totalPotsReturnedValue,
+      netBalance
+    };
+  });
 
   return {
     sessionId: session.id,
@@ -45,7 +56,8 @@ export default function SummaryScreen() {
           previousSessions.map(session => (
             <SessionSummary 
               key={session.id} 
-              summary={transformSessionToSummary(session)} 
+              summary={transformSessionToSummary(session)}
+              potMode={session.potMode}
             />
           ))
         )}

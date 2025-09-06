@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 interface PlayerCardProps {
   player: Player;
   potValue: number;
+  potMode: 'fixed' | 'direct';
   onUpdatePotsTaken: (playerId: string, value: number) => void;
   onUpdatePotsReturned: (playerId: string, value: number) => void;
   onDeletePlayer: (playerId: string) => void;
@@ -18,6 +19,7 @@ interface PlayerCardProps {
 export function PlayerCard({ 
   player, 
   potValue, 
+  potMode,
   onUpdatePotsTaken, 
   onUpdatePotsReturned,
   onDeletePlayer,
@@ -102,8 +104,13 @@ export function PlayerCard({
     onDeletePlayer(player.id);
   };
 
-  const totalPotsTakenValue = player.potsTaken * potValue;
-  const totalPotsReturnedValue = (player.potsReturned ?? 0) * potValue;
+  // Calculate values based on pot mode
+  const totalPotsTakenValue = potMode === 'direct' 
+    ? player.potsTaken 
+    : player.potsTaken * potValue;
+  const totalPotsReturnedValue = potMode === 'direct'
+    ? (player.potsReturned ?? 0)
+    : (player.potsReturned ?? 0) * potValue;
   const netBalance = totalPotsReturnedValue - totalPotsTakenValue;
   const isProfit = totalPotsReturnedValue > totalPotsTakenValue;
 
@@ -129,89 +136,113 @@ export function PlayerCard({
 
       <View style={styles.potsContainer}>
         <View style={styles.potSection}>
-          <Text style={[styles.potLabel, { color: textColor }]}>Pots Taken</Text>
-          {!isReadOnly ? (
-            <View style={styles.potControls}>
-              <TouchableOpacity
-                style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
-                onPress={handleDecrementPotsTaken}
-              >
-                <Ionicons name="remove" size={20} color={textColor} />
-              </TouchableOpacity>
-              <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
-              <TouchableOpacity
-                style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
-                onPress={handleIncrementPotsTaken}
-              >
-                <Ionicons name="add" size={20} color={textColor} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
-          )}
-          <Text style={[styles.potAmount, { color: textColor }]}>
-            {'$' + totalPotsTakenValue.toFixed(2)}
+          <Text style={[styles.potLabel, { color: textColor }]}>
+            {potMode === 'direct' ? 'Amount Taken' : 'Pots Taken'}
           </Text>
+          {potMode === 'direct' ? (
+            // Direct mode: Only show dollar amount
+            <Text style={[styles.potAmount, { color: textColor, fontSize: 18 }]}>
+              {'$' + totalPotsTakenValue.toFixed(2)}
+            </Text>
+          ) : (
+            // Fixed mode: Show pot count and dollar amount
+            <>
+              {!isReadOnly ? (
+                <View style={styles.potControls}>
+                  <TouchableOpacity
+                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                    onPress={handleDecrementPotsTaken}
+                  >
+                    <Ionicons name="remove" size={20} color={textColor} />
+                  </TouchableOpacity>
+                  <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
+                  <TouchableOpacity
+                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                    onPress={handleIncrementPotsTaken}
+                  >
+                    <Ionicons name="add" size={20} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
+              )}
+              <Text style={[styles.potAmount, { color: textColor }]}>
+                {'$' + totalPotsTakenValue.toFixed(2)}
+              </Text>
+            </>
+          )}
         </View>
 
         <View style={styles.potSection}>
           <View style={styles.potLabelContainer}>
-            <Text style={[styles.potLabel, { color: textColor }]}>Pots Returned</Text>
+            <Text style={[styles.potLabel, { color: textColor }]}>
+              {potMode === 'direct' ? 'Amount Returned' : 'Pots Returned'}
+            </Text>
             {isEndingSession && !isPotsReturnedValid && (
               <Text style={[styles.warningText, { color: warningColor }]}>
                 Required
               </Text>
             )}
           </View>
-          {!isReadOnly ? (
-            <>
-              <View style={styles.potControls}>
-                <TouchableOpacity
-                  style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
-                  onPress={handleDecrementPotsReturned}
-                >
-                  <Ionicons name="remove" size={20} color={textColor} />
-                </TouchableOpacity>
-                <TextInput
-                  style={[
-                    styles.potsReturnedInput, 
-                    { 
-                      color: textColor, 
-                      borderColor: isEndingSession && !isPotsReturnedValid ? warningColor : borderColor 
-                    }
-                  ]}
-                  value={potsReturnedInput}
-                  onChangeText={handlePotsReturnedInputChange}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                />
-                <TouchableOpacity
-                  style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
-                  onPress={handleIncrementPotsReturned}
-                >
-                  <Ionicons name="add" size={20} color={textColor} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.decimalButtonsContainer}>
-                {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map(decimal => (
-                  <TouchableOpacity
-                    key={decimal}
-                    style={[styles.decimalButton, { backgroundColor: buttonBackgroundColor, borderColor }]}
-                    onPress={() => handleDecimalIncrement(decimal)}
-                  >
-                    <Text style={[styles.decimalButtonText, { color: textColor }]}>
-                      +{decimal.toString()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
+          {potMode === 'direct' ? (
+            // Direct mode: Only show dollar amount
+            <Text style={[styles.potAmount, { color: textColor, fontSize: 18 }]}>
+              {'$' + totalPotsReturnedValue.toFixed(2)}
+            </Text>
           ) : (
-            <Text style={[styles.potValue, { color: textColor }]}>{(player.potsReturned ?? 0).toString()}</Text>
+            // Fixed mode: Show pot count and dollar amount
+            <>
+              {!isReadOnly ? (
+                <>
+                  <View style={styles.potControls}>
+                    <TouchableOpacity
+                      style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                      onPress={handleDecrementPotsReturned}
+                    >
+                      <Ionicons name="remove" size={20} color={textColor} />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[
+                        styles.potsReturnedInput, 
+                        { 
+                          color: textColor, 
+                          borderColor: isEndingSession && !isPotsReturnedValid ? warningColor : borderColor 
+                        }
+                      ]}
+                      value={potsReturnedInput}
+                      onChangeText={handlePotsReturnedInputChange}
+                      keyboardType="decimal-pad"
+                      placeholder="0"
+                    />
+                    <TouchableOpacity
+                      style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                      onPress={handleIncrementPotsReturned}
+                    >
+                      <Ionicons name="add" size={20} color={textColor} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.decimalButtonsContainer}>
+                    {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map(decimal => (
+                      <TouchableOpacity
+                        key={decimal}
+                        style={[styles.decimalButton, { backgroundColor: buttonBackgroundColor, borderColor }]}
+                        onPress={() => handleDecimalIncrement(decimal)}
+                      >
+                        <Text style={[styles.decimalButtonText, { color: textColor }]}>
+                          +{decimal.toString()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <Text style={[styles.potValue, { color: textColor }]}>{(player.potsReturned ?? 0).toString()}</Text>
+              )}
+              <Text style={[styles.potAmount, { color: textColor }]}>
+                {'$' + totalPotsReturnedValue.toFixed(2)}
+              </Text>
+            </>
           )}
-          <Text style={[styles.potAmount, { color: textColor }]}>
-            {'$' + totalPotsReturnedValue.toFixed(2)}
-          </Text>
         </View>
       </View>
 

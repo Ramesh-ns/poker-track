@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     session_name VARCHAR(255) NOT NULL,
     pot_value DECIMAL(10,2) NOT NULL,
+    pot_mode VARCHAR(20) NOT NULL DEFAULT 'fixed',
     start_time TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,

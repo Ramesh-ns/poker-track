@@ -28,6 +28,7 @@ export default function HomeScreen() {
   } = usePoker();
   const [sessionName, setSessionName] = useState('');
   const [potValue, setPotValue] = useState('');
+  const [potMode, setPotMode] = useState<'fixed' | 'direct'>('fixed');
   const [playerName, setPlayerName] = useState('');
   const [error, setError] = useState('');
 
@@ -39,19 +40,28 @@ export default function HomeScreen() {
   }, [session, previousSessions]);
 
   const handleStartSession = () => {
-    console.log('Starting session with name:', sessionName, 'and pot value:', potValue);
+    console.log('Starting session with name:', sessionName, 'pot value:', potValue, 'and mode:', potMode);
     if (!sessionName.trim()) {
       setError('Please enter a session name');
       return;
     }
-    const value = parseFloat(potValue);
-    if (isNaN(value) || value <= 0) {
-      setError('Please enter a valid pot value');
-      return;
+    
+    // For fixed mode, validate pot value
+    if (potMode === 'fixed') {
+      const value = parseFloat(potValue);
+      if (isNaN(value) || value <= 0) {
+        setError('Please enter a valid pot value');
+        return;
+      }
+      startSession(sessionName.trim(), value, potMode);
+    } else {
+      // For direct mode, use 0 as pot value (not used in calculations)
+      startSession(sessionName.trim(), 0, potMode);
     }
-    startSession(sessionName.trim(), value);
+    
     setSessionName('');
     setPotValue('');
+    setPotMode('fixed');
     setError('');
   };
 
@@ -155,17 +165,26 @@ export default function HomeScreen() {
         
         <View style={styles.sessionDetails}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Pot Value:</Text>
-            <Text style={styles.detailValue}>{'$' + session.potValue.toFixed(2)}</Text>
+            <Text style={styles.detailLabel}>
+              {session.potMode === 'direct' ? 'Mode:' : 'Pot Value:'}
+            </Text>
+            <Text style={styles.detailValue}>
+              {session.potMode === 'direct' 
+                ? 'Direct Dollar'
+                : `$${session.potValue.toFixed(2)}`
+              }
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Players:</Text>
             <Text style={styles.detailValue}>{session.players.length.toString()}</Text>
           </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Total Pots:</Text>
-            <Text style={styles.detailValue}>{Math.floor(totalPots).toString()}</Text>
-          </View>
+          {session.potMode === 'fixed' && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Total Pots:</Text>
+              <Text style={styles.detailValue}>{Math.floor(totalPots).toString()}</Text>
+            </View>
+          )}
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Net Balance:</Text>
             <Text style={[
@@ -198,16 +217,52 @@ export default function HomeScreen() {
             </View>
             
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Pot Value ($)</Text>
-              <TextInput
-                style={styles.input}
-                value={potValue}
-                onChangeText={setPotValue}
-                keyboardType="decimal-pad"
-                placeholder="Enter pot value"
-              />
-              {error && <Text style={styles.error}>{error}</Text>}
+              <Text style={styles.label}>Pot Mode</Text>
+              <View style={styles.potModeContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.potModeButton,
+                    potMode === 'fixed' && styles.potModeButtonActive
+                  ]}
+                  onPress={() => setPotMode('fixed')}
+                >
+                  <Text style={[
+                    styles.potModeButtonText,
+                    potMode === 'fixed' && styles.potModeButtonTextActive
+                  ]}>
+                    Fixed Value
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.potModeButton,
+                    potMode === 'direct' && styles.potModeButtonActive
+                  ]}
+                  onPress={() => setPotMode('direct')}
+                >
+                  <Text style={[
+                    styles.potModeButtonText,
+                    potMode === 'direct' && styles.potModeButtonTextActive
+                  ]}>
+                    Direct Dollar
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
+            
+            {potMode === 'fixed' && (
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Pot Value ($)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={potValue}
+                  onChangeText={setPotValue}
+                  keyboardType="decimal-pad"
+                  placeholder="Enter pot value"
+                />
+                {error && <Text style={styles.error}>{error}</Text>}
+              </View>
+            )}
             
             <TouchableOpacity
               style={styles.button}
@@ -237,7 +292,10 @@ export default function HomeScreen() {
           <View style={styles.sessionInfo}>
             <Text style={styles.sessionTitle}>{session.sessionName}</Text>
             <Text style={styles.potValue}>
-              {'Pot Value: $' + session.potValue.toFixed(2)}
+              {session.potMode === 'direct' 
+                ? 'Direct Dollar Mode'
+                : `Pot Value: $${session.potValue.toFixed(2)}`
+              }
             </Text>
           </View>
 
@@ -268,6 +326,7 @@ export default function HomeScreen() {
                 key={player.id}
                 player={player}
                 potValue={session.potValue}
+                potMode={session.potMode}
                 onUpdatePotsTaken={(playerId, potsTaken) => {
                   updatePotsTaken(playerId, potsTaken);
                 }}
@@ -346,6 +405,37 @@ const styles = StyleSheet.create({
     color: '#F44336',
     marginTop: 8,
     fontSize: 14,
+  },
+  helpText: {
+    color: '#666666',
+    marginTop: 4,
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  potModeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  potModeButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  potModeButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  potModeButtonText: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  potModeButtonTextActive: {
+    color: '#FFFFFF',
   },
   button: {
     backgroundColor: '#007AFF',

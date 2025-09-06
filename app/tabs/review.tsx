@@ -59,7 +59,10 @@ export default function ReviewScreen() {
 
       <View style={styles.sessionInfo}>
         <Text style={[styles.potValue, { color: textColor }]}>
-          {'Pot Value: $' + session.potValue.toFixed(2)}
+          {session.potMode === 'direct' 
+            ? 'Direct Dollar Mode'
+            : `Pot Value: $${session.potValue.toFixed(2)}`
+          }
         </Text>
       </View>
 
@@ -74,6 +77,7 @@ export default function ReviewScreen() {
               key={player.id}
               player={player}
               potValue={session.potValue}
+              potMode={session.potMode}
               onUpdatePotsTaken={() => {}}
               onUpdatePotsReturned={() => {}}
               onDeletePlayer={() => {}}

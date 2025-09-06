@@ -9,7 +9,7 @@ interface PokerContextType {
   players: Player[];
   isLoading: boolean;
   error: string | null;
-  startSession: (sessionName: string, potValue: number) => Promise<void>;
+  startSession: (sessionName: string, potValue: number, potMode: 'fixed' | 'direct') => Promise<void>;
   endSession: () => Promise<void>;
   addPlayer: (name: string) => Promise<void>;
   updatePotsTaken: (playerId: string, potsTaken: number) => Promise<void>;
@@ -37,6 +37,7 @@ function mapDbSessionToSession(dbSession: any, players: Player[] = []): Session 
     id: dbSession.id,
     sessionName: dbSession.session_name,
     potValue: dbSession.pot_value,
+    potMode: dbSession.pot_mode || 'fixed',
     players,
     startTime: new Date(dbSession.start_time),
     endTime: dbSession.end_time ? new Date(dbSession.end_time) : null,
@@ -106,11 +107,11 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     } : null);
   }, []);
 
-  const startSession = async (sessionName: string, potValue: number) => {
+  const startSession = async (sessionName: string, potValue: number, potMode: 'fixed' | 'direct' = 'fixed') => {
     setIsLoading(true);
     setError(null);
     try {
-      const newSession = await api.createSession(sessionName, potValue);
+      const newSession = await api.createSession(sessionName, potValue, potMode);
       const mappedSession = mapDbSessionToSession(newSession);
       setSession(mappedSession);
       setPlayers([]);
@@ -192,8 +193,15 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     const playerSummaries: PlayerSummary[] = players.map(player => {
       const totalPotsTaken = player.potsTaken;
       const totalPotsReturned = player.potsReturned ?? 0;
-      const totalPotsTakenValue = totalPotsTaken * session.potValue;
-      const totalPotsReturnedValue = totalPotsReturned * session.potValue;
+      
+      // Calculate values based on pot mode
+      const totalPotsTakenValue = session.potMode === 'direct' 
+        ? totalPotsTaken 
+        : totalPotsTaken * session.potValue;
+      const totalPotsReturnedValue = session.potMode === 'direct'
+        ? totalPotsReturned
+        : totalPotsReturned * session.potValue;
+      
       const netBalance = totalPotsReturnedValue - totalPotsTakenValue;
       return {
         playerId: player.id,

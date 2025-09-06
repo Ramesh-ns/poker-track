@@ -5,10 +5,13 @@ export interface Player {
   potsReturned: number;
 }
 
+export type PotMode = 'fixed' | 'direct';
+
 export interface Session {
   id: string;
   sessionName: string;
   potValue: number;
+  potMode: PotMode;
   players: Player[];
   startTime: Date;
   endTime: Date | null;
