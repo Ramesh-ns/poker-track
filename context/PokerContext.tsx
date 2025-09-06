@@ -9,7 +9,7 @@ interface PokerContextType {
   players: Player[];
   isLoading: boolean;
   error: string | null;
-  startSession: (potValue: number) => Promise<void>;
+  startSession: (sessionName: string, potValue: number) => Promise<void>;
   endSession: () => Promise<void>;
   addPlayer: (name: string) => Promise<void>;
   updatePotsTaken: (playerId: string, potsTaken: number) => Promise<void>;
@@ -35,6 +35,7 @@ function mapDbPlayerToPlayer(dbPlayer: any): Player {
 function mapDbSessionToSession(dbSession: any, players: Player[] = []): Session {
   return {
     id: dbSession.id,
+    sessionName: dbSession.session_name,
     potValue: dbSession.pot_value,
     players,
     startTime: new Date(dbSession.start_time),
@@ -105,11 +106,11 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     } : null);
   }, []);
 
-  const startSession = async (potValue: number) => {
+  const startSession = async (sessionName: string, potValue: number) => {
     setIsLoading(true);
     setError(null);
     try {
-      const newSession = await api.createSession(potValue);
+      const newSession = await api.createSession(sessionName, potValue);
       const mappedSession = mapDbSessionToSession(newSession);
       setSession(mappedSession);
       setPlayers([]);

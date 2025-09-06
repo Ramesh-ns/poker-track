@@ -26,6 +26,7 @@ export default function HomeScreen() {
     updatePotsTaken,
     updatePotsReturned 
   } = usePoker();
+  const [sessionName, setSessionName] = useState('');
   const [potValue, setPotValue] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [error, setError] = useState('');
@@ -38,13 +39,18 @@ export default function HomeScreen() {
   }, [session, previousSessions]);
 
   const handleStartSession = () => {
-    console.log('Starting session with pot value:', potValue);
+    console.log('Starting session with name:', sessionName, 'and pot value:', potValue);
+    if (!sessionName.trim()) {
+      setError('Please enter a session name');
+      return;
+    }
     const value = parseFloat(potValue);
     if (isNaN(value) || value <= 0) {
       setError('Please enter a valid pot value');
       return;
     }
-    startSession(value);
+    startSession(sessionName.trim(), value);
+    setSessionName('');
     setPotValue('');
     setError('');
   };
@@ -136,6 +142,9 @@ export default function HomeScreen() {
         })}
       >
         <View style={styles.sessionHeader}>
+          <Text style={styles.sessionName}>
+            {session.sessionName}
+          </Text>
           <Text style={styles.sessionDate}>
             {formatDate(session.startTime)}
           </Text>
@@ -179,6 +188,16 @@ export default function HomeScreen() {
             <Text style={styles.title}>Start New Session</Text>
             
             <View style={styles.inputContainer}>
+              <Text style={styles.label}>Session Name</Text>
+              <TextInput
+                style={styles.input}
+                value={sessionName}
+                onChangeText={setSessionName}
+                placeholder="Enter session name"
+              />
+            </View>
+            
+            <View style={styles.inputContainer}>
               <Text style={styles.label}>Pot Value ($)</Text>
               <TextInput
                 style={styles.input}
@@ -216,7 +235,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.activeSessionContainer}>
           <View style={styles.sessionInfo}>
-            <Text style={styles.sessionTitle}>Active Session</Text>
+            <Text style={styles.sessionTitle}>{session.sessionName}</Text>
             <Text style={styles.potValue}>
               {'Pot Value: $' + session.potValue.toFixed(2)}
             </Text>
@@ -428,9 +447,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  sessionName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+    marginBottom: 4,
   },
   sessionDate: {
     fontSize: 16,

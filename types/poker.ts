@@ -7,6 +7,7 @@ export interface Player {
 
 export interface Session {
   id: string;
+  sessionName: string;
   potValue: number;
   players: Player[];
   startTime: Date;

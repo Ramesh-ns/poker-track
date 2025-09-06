@@ -1,10 +1,10 @@
 import { supabase } from './supabase';
 
 // Session helpers
-export async function createSession(potValue: number) {
+export async function createSession(sessionName: string, potValue: number) {
   const { data, error } = await supabase
     .from('sessions')
-    .insert([{ pot_value: potValue, start_time: new Date().toISOString() }])
+    .insert([{ session_name: sessionName, pot_value: potValue, start_time: new Date().toISOString() }])
     .select()
     .single();
   if (error) throw error;
