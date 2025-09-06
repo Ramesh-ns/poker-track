@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { Player } from '../types/poker';
@@ -42,6 +42,23 @@ export function PlayerCard({
       ? player.potsReturned.toString() 
       : ''
   );
+  
+  const [potsTakenInput, setPotsTakenInput] = useState<string>(
+    player.potsTaken.toString()
+  );
+
+  // Sync local state with player data
+  useEffect(() => {
+    setPotsTakenInput(player.potsTaken.toString());
+  }, [player.potsTaken]);
+
+  useEffect(() => {
+    setPotsReturnedInput(
+      (player.potsReturned !== undefined && player.potsReturned !== null) 
+        ? player.potsReturned.toString() 
+        : ''
+    );
+  }, [player.potsReturned]);
 
   const isPotsReturnedValid = !isEndingSession || (
     potsReturnedInput !== '' && 
@@ -91,12 +108,18 @@ export function PlayerCard({
   };
 
   const handleIncrementPotsTaken = () => {
-    onUpdatePotsTaken(player.id, player.potsTaken + 1);
+    const currentValue = parseFloat(potsTakenInput) || 0;
+    const newValue = currentValue + 1;
+    setPotsTakenInput(newValue.toString());
+    onUpdatePotsTaken(player.id, newValue);
   };
 
   const handleDecrementPotsTaken = () => {
-    if (player.potsTaken > 0) {
-      onUpdatePotsTaken(player.id, player.potsTaken - 1);
+    const currentValue = parseFloat(potsTakenInput) || 0;
+    if (currentValue > 0) {
+      const newValue = currentValue - 1;
+      setPotsTakenInput(newValue.toString());
+      onUpdatePotsTaken(player.id, newValue);
     }
   };
 
@@ -140,10 +163,46 @@ export function PlayerCard({
             {potMode === 'direct' ? 'Amount Taken' : 'Pots Taken'}
           </Text>
           {potMode === 'direct' ? (
-            // Direct mode: Only show dollar amount
-            <Text style={[styles.potAmount, { color: textColor, fontSize: 18 }]}>
-              {'$' + totalPotsTakenValue.toFixed(2)}
-            </Text>
+            // Direct mode: Show dollar amount input with text field
+            !isReadOnly ? (
+              <>
+                <View style={styles.potControls}>
+                  <TouchableOpacity
+                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                    onPress={handleDecrementPotsTaken}
+                  >
+                    <Ionicons name="remove" size={20} color={textColor} />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={[
+                      styles.potsReturnedInput, 
+                      { 
+                        color: textColor, 
+                        borderColor: borderColor 
+                      }
+                    ]}
+                    value={potsTakenInput}
+                    onChangeText={(text) => {
+                      setPotsTakenInput(text);
+                      const numericValue = parseFloat(text) || 0;
+                      onUpdatePotsTaken(player.id, numericValue);
+                    }}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                  />
+                  <TouchableOpacity
+                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                    onPress={handleIncrementPotsTaken}
+                  >
+                    <Ionicons name="add" size={20} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <Text style={[styles.potAmount, { color: textColor, fontSize: 18 }]}>
+                {'$' + totalPotsTakenValue.toFixed(2)}
+              </Text>
+            )
           ) : (
             // Fixed mode: Show pot count and dollar amount
             <>
@@ -164,11 +223,13 @@ export function PlayerCard({
                   </TouchableOpacity>
                 </View>
               ) : (
-                <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
+                <View style={styles.readOnlyContainer}>
+                  <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
+                  <Text style={[styles.potAmount, { color: textColor }]}>
+                    {'$' + totalPotsTakenValue.toFixed(2)}
+                  </Text>
+                </View>
               )}
-              <Text style={[styles.potAmount, { color: textColor }]}>
-                {'$' + totalPotsTakenValue.toFixed(2)}
-              </Text>
             </>
           )}
         </View>
@@ -185,10 +246,42 @@ export function PlayerCard({
             )}
           </View>
           {potMode === 'direct' ? (
-            // Direct mode: Only show dollar amount
-            <Text style={[styles.potAmount, { color: textColor, fontSize: 18 }]}>
-              {'$' + totalPotsReturnedValue.toFixed(2)}
-            </Text>
+            // Direct mode: Show dollar amount input
+            !isReadOnly ? (
+              <>
+                <View style={styles.potControls}>
+                  <TouchableOpacity
+                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                    onPress={handleDecrementPotsReturned}
+                  >
+                    <Ionicons name="remove" size={20} color={textColor} />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={[
+                      styles.potsReturnedInput, 
+                      { 
+                        color: textColor, 
+                        borderColor: isEndingSession && !isPotsReturnedValid ? warningColor : borderColor 
+                      }
+                    ]}
+                    value={potsReturnedInput}
+                    onChangeText={handlePotsReturnedInputChange}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                  />
+                  <TouchableOpacity
+                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
+                    onPress={handleIncrementPotsReturned}
+                  >
+                    <Ionicons name="add" size={20} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <Text style={[styles.potAmount, { color: textColor, fontSize: 18 }]}>
+                {'$' + totalPotsReturnedValue.toFixed(2)}
+              </Text>
+            )
           ) : (
             // Fixed mode: Show pot count and dollar amount
             <>
@@ -236,11 +329,13 @@ export function PlayerCard({
                   </View>
                 </>
               ) : (
-                <Text style={[styles.potValue, { color: textColor }]}>{(player.potsReturned ?? 0).toString()}</Text>
+                <View style={styles.readOnlyContainer}>
+                  <Text style={[styles.potValue, { color: textColor }]}>{(player.potsReturned ?? 0).toString()}</Text>
+                  <Text style={[styles.potAmount, { color: textColor }]}>
+                    {'$' + totalPotsReturnedValue.toFixed(2)}
+                  </Text>
+                </View>
               )}
-              <Text style={[styles.potAmount, { color: textColor }]}>
-                {'$' + totalPotsReturnedValue.toFixed(2)}
-              </Text>
             </>
           )}
         </View>
@@ -390,6 +485,9 @@ const styles = StyleSheet.create({
   },
   potAmount: {
     fontSize: 16,
+  },
+  readOnlyContainer: {
+    alignItems: 'flex-start',
   },
   potLabelContainer: {
     flexDirection: 'row',
