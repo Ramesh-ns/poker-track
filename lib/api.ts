@@ -2,9 +2,21 @@ import { supabase } from './supabase';
 
 // Session helpers
 export async function createSession(sessionName: string, potValue: number, potMode: 'fixed' | 'direct' = 'fixed') {
+  // Get current user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw new Error('User must be authenticated to create a session');
+  }
+
   const { data, error } = await supabase
     .from('sessions')
-    .insert([{ session_name: sessionName, pot_value: potValue, pot_mode: potMode, start_time: new Date().toISOString() }])
+    .insert([{ 
+      session_name: sessionName, 
+      pot_value: potValue, 
+      pot_mode: potMode, 
+      start_time: new Date().toISOString(),
+      user_id: user.id 
+    }])
     .select()
     .single();
   if (error) throw error;
@@ -12,10 +24,28 @@ export async function createSession(sessionName: string, potValue: number, potMo
 }
 
 export async function fetchSessions() {
+  // Get current user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw new Error('User must be authenticated to fetch sessions');
+  }
+
   const { data, error } = await supabase
     .from('sessions')
     .select('*')
+    .eq('user_id', user.id)
     .order('start_time', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function endSession(sessionId: string) {
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({ is_active: false, end_time: new Date().toISOString() })
+    .eq('id', sessionId)
+    .select()
+    .single();
   if (error) throw error;
   return data;
 }

@@ -1,7 +1,9 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, TouchableOpacity, Text, Alert, Platform } from 'react-native';
 import { Colors } from '../../constants/Colors';
+import { useAuth } from '../../context/AuthContext';
+import { useEffect } from 'react';
 
 /**
  * You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
@@ -9,6 +11,69 @@ import { Colors } from '../../constants/Colors';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { signOut, user, session } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if session is lost
+  useEffect(() => {
+    if (!session && !user) {
+      router.replace('/login');
+    }
+  }, [session, user, router]);
+
+  const handleLogout = async () => {
+    console.log('🔴 LOGOUT BUTTON CLICKED - handleLogout called');
+    
+    // On web, use direct logout without alert
+    if (Platform.OS === 'web') {
+      console.log('Web detected - performing direct logout');
+      try {
+        console.log('Calling signOut...');
+        await signOut();
+        console.log('SignOut completed, redirecting...');
+        router.replace('/login');
+      } catch (error) {
+        console.error('Logout error:', error);
+        router.replace('/login');
+      }
+      return;
+    }
+    
+    // Mobile: Use Alert
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => console.log('Logout cancelled'),
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🔴 Alert confirmed - Starting signout...');
+              await signOut();
+              console.log('🔴 Signout successful, redirecting...');
+              
+              // Force navigation
+              router.replace('/login');
+            } catch (error) {
+              console.error('🔴 Sign out error:', error);
+              router.replace('/login');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // If no session, redirect to login
+  if (!session && !user) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <Tabs
@@ -22,6 +87,24 @@ export default function TabLayout() {
           backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
         },
         headerTintColor: isDark ? Colors.dark.text : Colors.light.text,
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() => {
+              console.log('🔴 LOGOUT ICON PRESSED');
+              handleLogout();
+            }}
+            onPressIn={() => console.log('🔴 LOGOUT BUTTON PRESS IN')}
+            style={{ marginRight: 16, padding: 8 }}
+            accessibilityLabel="Sign Out"
+            testID="logout-button"
+          >
+            <Ionicons
+              name="log-out-outline"
+              size={24}
+              color={isDark ? Colors.dark.text : Colors.light.text}
+            />
+          </TouchableOpacity>
+        ),
       }}
     >
       <Tabs.Screen

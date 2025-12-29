@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Session, Player, SessionSummary, PlayerSummary } from '../types/poker';
 import * as api from '../lib/api';
-import { supabase } from '../lib/supabase';
 
 interface PokerContextType {
   session: Session | null;
@@ -127,11 +126,7 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      // Update session in DB to set is_active=false and end_time
-      await supabase
-        .from('sessions')
-        .update({ is_active: false, end_time: new Date().toISOString() })
-        .eq('id', session.id);
+      await api.endSession(session.id);
       setSession(null);
       await fetchSessions();
     } catch (err: any) {

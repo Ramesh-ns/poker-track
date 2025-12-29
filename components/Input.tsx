@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { 
   View, 
   TextInput, 
@@ -11,7 +11,7 @@ import {
 import { useColorScheme } from 'react-native';
 
 interface InputProps extends TextInputProps {
-  label?: string;
+  label?: string | ReactNode;
   error?: string;
   containerStyle?: ViewStyle;
   labelStyle?: TextStyle;
@@ -39,9 +39,15 @@ export function Input({
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
-        <Text style={[styles.label, { color: textColor }, labelStyle]}>
-          {label}
-        </Text>
+        typeof label === 'string' ? (
+          <Text style={[styles.label, { color: textColor }, labelStyle]}>
+            {label}
+          </Text>
+        ) : (
+          <View style={[styles.label, labelStyle]}>
+            {label}
+          </View>
+        )
       )}
       <TextInput
         style={[
