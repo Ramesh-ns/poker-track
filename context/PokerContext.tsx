@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Session, Player, SessionSummary, PlayerSummary } from '../types/poker';
 import * as api from '../lib/api';
+import { useAuth } from './AuthContext';
 
 interface PokerContextType {
   session: Session | null;
@@ -45,21 +46,55 @@ function mapDbSessionToSession(dbSession: any, players: Player[] = []): Session 
 }
 
 export function PokerProvider({ children }: { children: ReactNode }) {
+  const { user, session: authSession } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [previousSessions, setPreviousSessions] = useState<Session[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
 
-  // Fetch all sessions on mount
+  // Clear all data when user changes (logout or different user login)
   useEffect(() => {
-    fetchSessions();
-  }, []);
+    const currentUserId = user?.id || null;
+    
+    // If user changed (different user or logged out), clear all data
+    if (lastUserId !== null && lastUserId !== currentUserId) {
+      console.log('🔄 User changed - clearing all poker data');
+      console.log('   Previous user:', lastUserId);
+      console.log('   Current user:', currentUserId);
+      setSession(null);
+      setPreviousSessions([]);
+      setPlayers([]);
+      setError(null);
+    }
+    
+    // Update last user ID
+    setLastUserId(currentUserId);
+    
+    // Fetch sessions when user is logged in
+    if (currentUserId && authSession) {
+      console.log('🔄 User logged in - fetching fresh data for user:', currentUserId);
+      fetchSessions();
+    } else if (!currentUserId) {
+      console.log('🔄 No user - clearing all data');
+      setSession(null);
+      setPreviousSessions([]);
+      setPlayers([]);
+    }
+  }, [user?.id, authSession, fetchSessions, lastUserId]);
 
   const fetchSessions = useCallback(async () => {
+    // Don't fetch if no user is logged in
+    if (!user || !authSession) {
+      console.log('⏸️ No user logged in - skipping fetchSessions');
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     try {
+      console.log('📥 Fetching sessions for user:', user.id);
       const data = await api.fetchSessions();
       
       // Fetch players for each session
@@ -71,16 +106,18 @@ export function PokerProvider({ children }: { children: ReactNode }) {
         }) || []
       );
       
+      console.log('✅ Fetched', sessionsWithPlayers.length, 'sessions');
       setPreviousSessions(sessionsWithPlayers);
       // Optionally set current session if there's an active one
       const active = sessionsWithPlayers.find((s: Session) => s.isActive);
       setSession(active || null);
     } catch (err: any) {
+      console.error('❌ Error fetching sessions:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user, authSession]);
 
   const fetchPlayers = useCallback(async (sessionId: string) => {
     setIsLoading(true);
