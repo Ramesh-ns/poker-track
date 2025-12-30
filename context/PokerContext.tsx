@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Session, Player, SessionSummary, PlayerSummary } from '../types/poker';
 import * as api from '../lib/api';
 import { useAuth } from './AuthContext';
@@ -52,37 +52,51 @@ export function PokerProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastUserId, setLastUserId] = useState<string | null>(null);
+  // Use ref to track last user ID to avoid dependency issues
+  const lastUserIdRef = useRef<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   // Clear all data when user changes (logout or different user login)
   useEffect(() => {
     const currentUserId = user?.id || null;
+    const lastUserId = lastUserIdRef.current;
     
-    // If user changed (different user or logged out), clear all data
+    // If user changed (different user or logged out), clear all data immediately
     if (lastUserId !== null && lastUserId !== currentUserId) {
       console.log('🔄 User changed - clearing all poker data');
       console.log('   Previous user:', lastUserId);
       console.log('   Current user:', currentUserId);
+      
+      // Clear all state synchronously
       setSession(null);
       setPreviousSessions([]);
       setPlayers([]);
       setError(null);
+      isFetchingRef.current = false;
     }
     
-    // Update last user ID
-    setLastUserId(currentUserId);
+    // Update last user ID ref
+    lastUserIdRef.current = currentUserId;
     
-    // Fetch sessions when user is logged in
-    if (currentUserId && authSession) {
+    // Fetch sessions when user is logged in (only if not already fetching)
+    if (currentUserId && authSession && !isFetchingRef.current) {
       console.log('🔄 User logged in - fetching fresh data for user:', currentUserId);
-      fetchSessions();
+      isFetchingRef.current = true;
+      // Use setTimeout to ensure state updates are processed first (helps with browser)
+      setTimeout(() => {
+        fetchSessions().finally(() => {
+          isFetchingRef.current = false;
+        });
+      }, 50);
     } else if (!currentUserId) {
       console.log('🔄 No user - clearing all data');
       setSession(null);
       setPreviousSessions([]);
       setPlayers([]);
+      isFetchingRef.current = false;
     }
-  }, [user?.id, authSession, fetchSessions, lastUserId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, authSession]);
 
   const fetchSessions = useCallback(async () => {
     // Don't fetch if no user is logged in
@@ -91,11 +105,24 @@ export function PokerProvider({ children }: { children: ReactNode }) {
       return;
     }
     
+    // Prevent duplicate fetches
+    if (isFetchingRef.current) {
+      console.log('⏸️ Already fetching sessions - skipping');
+      return;
+    }
+    
+    isFetchingRef.current = true;
     setIsLoading(true);
     setError(null);
     try {
       console.log('📥 Fetching sessions for user:', user.id);
       const data = await api.fetchSessions();
+      
+      // Verify we're still fetching for the same user
+      if (lastUserIdRef.current !== user.id) {
+        console.log('⚠️ User changed during fetch - discarding results');
+        return;
+      }
       
       // Fetch players for each session
       const sessionsWithPlayers = await Promise.all(
@@ -105,6 +132,12 @@ export function PokerProvider({ children }: { children: ReactNode }) {
           return mapDbSessionToSession(dbSession, mappedPlayers);
         }) || []
       );
+      
+      // Double-check user hasn't changed
+      if (lastUserIdRef.current !== user.id) {
+        console.log('⚠️ User changed after fetch - discarding results');
+        return;
+      }
       
       console.log('✅ Fetched', sessionsWithPlayers.length, 'sessions');
       setPreviousSessions(sessionsWithPlayers);
@@ -116,6 +149,7 @@ export function PokerProvider({ children }: { children: ReactNode }) {
       setError(err.message);
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, [user, authSession]);
 

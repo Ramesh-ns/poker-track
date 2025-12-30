@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { usePoker } from '../../context/PokerContext';
+import { useAuth } from '../../context/AuthContext';
 import { PlayerCard } from '../../components/PlayerCard';
 import { SessionSummary } from '../../components/SessionSummary';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +18,7 @@ import { Session, Player } from '../../types/poker';
 import { router } from 'expo-router';
 
 export default function HomeScreen() {
+  const { user } = useAuth();
   const { 
     session, 
     previousSessions, 
@@ -24,7 +26,8 @@ export default function HomeScreen() {
     addPlayer, 
     endSession,
     updatePotsTaken,
-    updatePotsReturned 
+    updatePotsReturned,
+    fetchSessions
   } = usePoker();
   const [sessionName, setSessionName] = useState('');
   const [potValue, setPotValue] = useState('');
@@ -35,9 +38,22 @@ export default function HomeScreen() {
   // Debug logging
   useEffect(() => {
     console.log('HomeScreen rendered');
+    console.log('User:', user?.id);
     console.log('Session:', session);
     console.log('Previous sessions:', previousSessions);
-  }, [session, previousSessions]);
+  }, [session, previousSessions, user?.id]);
+
+  // Force refresh when user changes (for browser compatibility)
+  useEffect(() => {
+    if (user?.id) {
+      console.log('🔄 HomeScreen: User detected, ensuring fresh data');
+      // Small delay to ensure auth state is fully updated
+      const timer = setTimeout(() => {
+        fetchSessions();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [user?.id, fetchSessions]);
 
   const handleStartSession = () => {
     console.log('Starting session with name:', sessionName, 'pot value:', potValue, 'and mode:', potMode);
