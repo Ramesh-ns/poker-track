@@ -1,5 +1,11 @@
 import { supabase } from './supabase';
 
+// Feature flag: Set to true to enable OTP verification for phone signups
+// Set to false to skip OTP verification and auto-confirm phone signups
+// NOTE: When set to false, you may also need to disable "Require phone verification" 
+// in Supabase Dashboard → Authentication → Settings → Phone Auth
+const ENABLE_PHONE_OTP_VERIFICATION = false;
+
 // Helper to check if string is email or phone
 function isEmail(str: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
@@ -29,19 +35,53 @@ export async function checkEmailExists(email: string): Promise<boolean> {
 
 // Check if phone exists
 export async function checkPhoneExists(phone: string): Promise<boolean> {
-  // Remove formatting for comparison
-  const cleanedPhone = phone.replace(/[^\d+]/g, '');
-  const { data, error } = await supabase
+  // Remove formatting for comparison - ensure it starts with +
+  let cleanedPhone = phone.replace(/[^\d+]/g, '');
+  
+  // Ensure phone starts with +
+  if (!cleanedPhone.startsWith('+')) {
+    cleanedPhone = '+' + cleanedPhone;
+  }
+  
+  console.log('🔍 Checking if phone exists:', cleanedPhone);
+  
+  // Check in profiles table - try exact match first
+  const { data: exactMatch, error: exactError } = await supabase
     .from('profiles')
     .select('phone')
     .eq('phone', cleanedPhone)
-    .single();
+    .maybeSingle();
   
-  if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
-    throw error;
+  if (exactMatch) {
+    console.log('✅ Phone found in profiles (exact match)');
+    return true;
   }
   
-  return !!data;
+  // If not found, try to find any phone that matches when cleaned
+  // This handles cases where phone might be stored with different formatting
+  const { data: allProfiles, error: allError } = await supabase
+    .from('profiles')
+    .select('phone')
+    .not('phone', 'is', null);
+  
+  if (!allError && allProfiles) {
+    const matchingPhone = allProfiles.find(profile => {
+      if (!profile.phone) return false;
+      const profilePhoneCleaned = profile.phone.replace(/[^\d+]/g, '');
+      const profilePhoneNormalized = profilePhoneCleaned.startsWith('+') 
+        ? profilePhoneCleaned 
+        : '+' + profilePhoneCleaned;
+      return profilePhoneNormalized === cleanedPhone;
+    });
+    
+    if (matchingPhone) {
+      console.log('✅ Phone found in profiles (normalized match):', matchingPhone.phone);
+      return true;
+    }
+  }
+  
+  console.log('❌ Phone not found in profiles');
+  return false;
 }
 
 // Check if username exists
@@ -67,6 +107,36 @@ function getFriendlyErrorMessage(error: any, username?: string, emailOrPhone?: s
 
   // Check Supabase auth errors first
   if (errorCode === 'signup_disabled' || errorMessage.includes('signup_disabled')) {
+    return 'Registration is currently disabled. Please contact support.';
+  }
+
+  // Check for Twilio/SMS provider errors
+  // Error code 'sms_send_failed' indicates Twilio/SMS provider issue
+  if (errorCode === 'sms_send_failed' || 
+      errorMessage.includes('Twilio') || 
+      errorMessage.includes('twilio') || 
+      errorMessage.includes('60200') ||
+      errorMessage.includes('Error sending confirmation OTP to provider')) {
+    
+    if (errorMessage.includes('Invalid parameter') || errorMessage.includes('60200')) {
+      return 'Twilio configuration error: Invalid parameter. Please verify: 1) Twilio Message Service SID is correctly entered in Supabase Dashboard (Authentication → Settings → Phone → Message Service SID), 2) For Twilio trial accounts, verify your phone number in Twilio Console (Phone Numbers → Verified Caller IDs), 3) Ensure your Twilio credentials (Account SID, Auth Token, Message Service SID) are correct.';
+    }
+    if (errorMessage.includes('unverified') || errorMessage.includes('not verified')) {
+      return 'Phone number not verified in Twilio. For Twilio trial accounts, you must verify your phone number in Twilio Console first (Phone Numbers → Verified Caller IDs).';
+    }
+    if (errorMessage.includes('Message Service') || errorMessage.includes('message service')) {
+      return 'Twilio Message Service SID error. Please verify the Message Service SID is correctly configured in Supabase Dashboard (Authentication → Settings → Phone → Message Service SID). It should start with "MG".';
+    }
+    return 'SMS sending failed. Please check your Twilio configuration in Supabase Dashboard (Authentication → Settings → Phone). Verify: 1) Twilio Account SID, 2) Twilio Auth Token, 3) Twilio Message Service SID (starts with "MG"). For trial accounts, also verify your phone number in Twilio Console.';
+  }
+
+  // Check for phone signups disabled
+  if (errorMessage.includes('Phone signups are disabled') || 
+      errorMessage.includes('phone signups disabled') ||
+      errorCode === 'phone_signups_disabled') {
+    if (isPhoneNumber) {
+      return 'Phone number registration is currently disabled. Please use email to register.';
+    }
     return 'Registration is currently disabled. Please contact support.';
   }
 
@@ -173,9 +243,30 @@ export async function signUp(
   }
 
   if (isPhoneNumber || isPhone(emailOrPhone)) {
-    // Sign up with phone - remove formatting for storage
-    const cleanedPhone = emailOrPhone.replace(/[^\d+]/g, '');
-    console.log('📱 Signing up with phone:', cleanedPhone);
+    // Sign up with phone - ensure proper format
+    let cleanedPhone = emailOrPhone.replace(/[^\d+]/g, '');
+    
+    // Ensure phone starts with +
+    if (!cleanedPhone.startsWith('+')) {
+      cleanedPhone = '+' + cleanedPhone;
+    }
+    
+    // Validate phone number format before sending to Supabase/Twilio
+    // E.164 format: +[country code][number] (10-15 digits total after +)
+    const phoneDigits = cleanedPhone.replace(/[^\d]/g, '');
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      throw new Error('Invalid phone number format. Phone number must be between 10-15 digits (including country code). Example: +19876543210 or +919876543210');
+    }
+    
+    // Log with explicit console.log to ensure visibility
+    console.log('========================================');
+    console.log('📱 ATTEMPTING PHONE SIGNUP');
+    console.log('========================================');
+    console.log('Phone number (E.164):', cleanedPhone);
+    console.log('Phone digits count:', phoneDigits.length);
+    console.log('Username:', username.trim());
+    console.log('========================================');
+    
     const { data, error } = await supabase.auth.signUp({
       phone: cleanedPhone,
       password,
@@ -188,10 +279,85 @@ export async function signUp(
     });
     
     if (error) {
-      console.error('❌ Supabase signup error:', error);
+      console.log('========================================');
+      console.log('❌ SUPABASE SIGNUP ERROR');
+      console.log('========================================');
+      console.log('Error code:', error.code);
+      console.log('Error message:', error.message);
+      console.log('Full error:', JSON.stringify(error, null, 2));
+      console.log('========================================');
+      
+      // Check specifically for phone signups disabled
+      const errorMsg = error.message || '';
+      const errorCode = error.code || '';
+      
+      if (errorMsg.includes('Phone signups are disabled') || 
+          errorMsg.includes('phone signups disabled') ||
+          errorMsg.includes('signups are disabled') ||
+          errorCode === 'phone_signups_disabled' ||
+          errorCode === 'signup_disabled') {
+        console.log('🚫 Phone signups are disabled in Supabase');
+        throw new Error('Phone signups are disabled. Please enable phone signups in Supabase Dashboard (Authentication → Settings → Phone) or use email to register.');
+      }
+      
+      // Check for SMS/Twilio errors specifically
+      if (errorCode === 'sms_send_failed' || errorMsg.includes('Error sending confirmation OTP')) {
+        console.log('📱 SMS sending failed - likely Twilio configuration issue');
+        console.log('💡 Troubleshooting steps:');
+        console.log('   1. Verify Twilio Message Service SID in Supabase Dashboard');
+        console.log('   2. For trial accounts, verify phone number in Twilio Console');
+        console.log('   3. Check Twilio Account SID and Auth Token are correct');
+      }
+      
       // Convert auth errors to user-friendly messages
       const friendlyMessage = getFriendlyErrorMessage(error, username, cleanedPhone, true);
       throw new Error(friendlyMessage);
+    }
+    
+    console.log('✅ Phone signup successful, user created:', data.user?.id);
+    console.log('Session exists:', !!data.session);
+    console.log('User needs verification:', !data.session);
+    console.log('Full signup response:', JSON.stringify(data, null, 2));
+    
+    // If OTP verification is enabled and no session, user needs to verify OTP
+    if (ENABLE_PHONE_OTP_VERIFICATION && !data.session && data.user) {
+      console.log('📱 User needs phone verification - OTP should be sent to phone');
+      console.log('⚠️ TROUBLESHOOTING: If you don\'t receive SMS:');
+      console.log('   1. Check Supabase Dashboard → Logs → Auth Logs (OTP codes may appear in logs for testing)');
+      console.log('   2. Verify Twilio Message Service SID in Supabase Dashboard → Authentication → Settings → Phone');
+      console.log('   3. For Twilio trial accounts, verify phone number in Twilio Console → Phone Numbers → Verified Caller IDs');
+      console.log('   4. Check Twilio Console → Monitor → Logs for SMS delivery status');
+      console.log('   5. Verify phone number format is correct:', cleanedPhone);
+      
+      // Check if we can get more info about the SMS send
+      if (data.user.confirmation_sent_at) {
+        console.log('✅ Confirmation sent at:', data.user.confirmation_sent_at);
+        console.log('💡 This means Supabase attempted to send SMS. Check Supabase/Twilio logs for delivery status.');
+      }
+      
+      // Return data with a flag indicating verification is needed
+      return { ...data, needsVerification: true, phone: cleanedPhone };
+    }
+    
+    // If OTP verification is disabled and no session, try to auto-sign in
+    if (!ENABLE_PHONE_OTP_VERIFICATION && !data.session && data.user) {
+      console.log('📱 OTP verification disabled - attempting auto-sign in');
+      try {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          phone: cleanedPhone,
+          password,
+        });
+        if (!signInError && signInData) {
+          console.log('✅ Auto-signed in after phone signup');
+          // Update the data to include session
+          data.session = signInData.session;
+          data.user = signInData.user;
+        } else {
+          console.log('⚠️ Could not auto-sign in, but user was created');
+        }
+      } catch (e) {
+        console.log('⚠️ Could not auto-sign in after phone signup:', e);
+      }
     }
     
     // Create profile immediately using RPC function (bypasses RLS)
@@ -288,6 +454,13 @@ export async function signUp(
 function getFriendlyLoginErrorMessage(error: any): string {
   const errorMessage = error?.message || '';
   const errorCode = error?.code || '';
+
+  // Phone not confirmed
+  if (errorMessage.includes('Phone not confirmed') || 
+      errorMessage.includes('phone not confirmed') ||
+      errorCode === 'phone_not_confirmed') {
+    return 'Please verify your phone number before signing in. Check your SMS for a verification code.';
+  }
 
   // Email not confirmed
   if (errorMessage.includes('Email not confirmed') || errorCode === 'email_not_confirmed') {
@@ -444,6 +617,102 @@ export async function signOut() {
   
   // Force clear session one more time
   await supabase.auth.signOut();
+}
+
+// Verify phone OTP code
+export async function verifyPhoneOTP(phone: string, token: string) {
+  // Clean phone number
+  let cleanedPhone = phone.replace(/[^\d+]/g, '');
+  if (!cleanedPhone.startsWith('+')) {
+    cleanedPhone = '+' + cleanedPhone;
+  }
+  
+  console.log('========================================');
+  console.log('🔐 VERIFYING OTP');
+  console.log('========================================');
+  console.log('Phone:', cleanedPhone);
+  console.log('OTP token:', token.trim());
+  console.log('========================================');
+  
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: cleanedPhone,
+    token: token.trim(),
+    type: 'sms',
+  });
+  
+  if (error) {
+    console.log('========================================');
+    console.log('❌ OTP VERIFICATION ERROR');
+    console.log('========================================');
+    console.log('Error code:', error.code);
+    console.log('Error message:', error.message);
+    console.log('Full error:', JSON.stringify(error, null, 2));
+    console.log('========================================');
+    
+    // Provide helpful error messages
+    if (error.message?.includes('expired') || error.message?.includes('invalid')) {
+      throw new Error('Invalid or expired verification code. Please request a new code.');
+    }
+    
+    throw error;
+  }
+  
+  console.log('✅ OTP verified successfully');
+  console.log('Session created:', !!data.session);
+  
+  // After successful verification, create profile if it doesn't exist
+  if (data.user) {
+    // Check if profile exists
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', data.user.id)
+      .single();
+    
+    if (profileError && profileError.code === 'PGRST116') {
+      // Profile doesn't exist, create it
+      const username = data.user.user_metadata?.username || `user_${data.user.id.substring(0, 8)}`;
+      console.log('Creating profile after OTP verification...');
+      const { error: createError } = await supabase.rpc('create_user_profile', {
+        p_user_id: data.user.id,
+        p_username: username,
+        p_phone: cleanedPhone,
+        p_email: null,
+      });
+      
+      if (createError) {
+        console.error('❌ Failed to create profile after verification:', createError);
+      } else {
+        console.log('✅ Profile created after OTP verification');
+      }
+    }
+  }
+  
+  return data;
+}
+
+// Resend OTP code
+export async function resendPhoneOTP(phone: string) {
+  // Clean phone number
+  let cleanedPhone = phone.replace(/[^\d+]/g, '');
+  if (!cleanedPhone.startsWith('+')) {
+    cleanedPhone = '+' + cleanedPhone;
+  }
+  
+  console.log('📤 Resending OTP to phone:', cleanedPhone);
+  
+  const { data, error } = await supabase.auth.resend({
+    type: 'sms',
+    phone: cleanedPhone,
+  });
+  
+  if (error) {
+    console.error('❌ Resend OTP error:', error);
+    throw error;
+  }
+  
+  console.log('✅ OTP resent successfully');
+  return data;
 }
 
 // Get current user

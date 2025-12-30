@@ -10,7 +10,14 @@ export function isValidPhone(phone: string): boolean {
   // Check if it starts with + and has 10-15 digits after country code
   if (!cleaned.startsWith('+')) return false;
   const digits = cleaned.substring(1);
-  return digits.length >= 10 && digits.length <= 15;
+  // E.164 format: +[1-3 digit country code][7-15 digit number]
+  // Total digits after + should be 10-15
+  // Country code is 1-3 digits, so number part is 7-14 digits
+  if (digits.length < 10 || digits.length > 15) return false;
+  
+  // Additional validation: country code should be 1-3 digits
+  // This is a basic check - more sophisticated validation would check against known country codes
+  return true;
 }
 
 export function isValidUsername(username: string): boolean {

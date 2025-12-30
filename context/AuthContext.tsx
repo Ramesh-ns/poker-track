@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   user: any;
   isLoading: boolean;
-  signUp: (emailOrPhone: string, password: string, username?: string, isPhone?: boolean) => Promise<void>;
+  signUp: (emailOrPhone: string, password: string, username?: string, isPhone?: boolean) => Promise<any>;
   signIn: (identifier: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -42,7 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (emailOrPhone: string, password: string, username?: string, isPhone = false) => {
     setIsLoading(true);
     try {
-      await authApi.signUp(emailOrPhone, password, username, isPhone);
+      const result = await authApi.signUp(emailOrPhone, password, username, isPhone);
+      return result;
     } finally {
       setIsLoading(false);
     }

@@ -28,6 +28,11 @@ export default function RegisterScreen() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationError, setVerificationError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [phoneForVerification, setPhoneForVerification] = useState('');
   const { signUp } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -57,21 +62,55 @@ export default function RegisterScreen() {
       }
     } else {
       // For phone, combine country code with phone number
+      // Remove all non-digits from the input
       const phoneDigits = emailOrPhone.replace(/\D/g, '');
-      const fullPhone = selectedCountry.dialCode + phoneDigits;
+      
+      // Don't check if phone is too short
+      if (phoneDigits.length < 10) {
+        setEmailOrPhoneError('');
+        return;
+      }
+      
+      // Ensure country code doesn't have + duplicated
+      const dialCode = selectedCountry.dialCode.startsWith('+') 
+        ? selectedCountry.dialCode 
+        : '+' + selectedCountry.dialCode;
+      
+      // Combine: dialCode already has +, so just add digits
+      const fullPhone = dialCode + phoneDigits;
+      
+      if (__DEV__) {
+        console.log('🔍 Phone validation - digits:', phoneDigits, 'fullPhone:', fullPhone);
+      }
+
       if (!isValidPhone(fullPhone)) {
         setEmailOrPhoneError('Mobile number format is not correct');
       } else {
         // Check if phone exists (using full phone with country code)
         try {
+          if (__DEV__) {
+            console.log('🔍 Checking if phone exists:', fullPhone);
+          }
           const exists = await authApi.checkPhoneExists(fullPhone);
+          if (__DEV__) {
+            console.log('✅ Phone exists check result:', exists);
+          }
           if (exists) {
             setEmailOrPhoneError('Mobile number already exists');
           } else {
             setEmailOrPhoneError('');
           }
-        } catch (err) {
-          setEmailOrPhoneError('');
+        } catch (err: any) {
+          // Only log in development
+          if (__DEV__) {
+            console.error('❌ Error checking phone existence:', err);
+          }
+          // Don't show error if it's a network/database error, just clear it
+          if (err.message?.includes('already exists')) {
+            setEmailOrPhoneError('Mobile number already exists');
+          } else {
+            setEmailOrPhoneError('');
+          }
         }
       }
     }
@@ -142,6 +181,7 @@ export default function RegisterScreen() {
     }
     
     setEmailOrPhone(formatted);
+    // Clear errors when user types
     setEmailOrPhoneError('');
     setError('');
   };
@@ -248,7 +288,17 @@ export default function RegisterScreen() {
         username: username.trim(),
       });
       
-      await signUp(cleanedEmailOrPhone, password, username.trim(), registrationMethod === 'phone');
+      const result = await signUp(cleanedEmailOrPhone, password, username.trim(), registrationMethod === 'phone');
+      
+      // Check if phone verification is needed (only if OTP verification is enabled)
+      if (result && (result as any).needsVerification && registrationMethod === 'phone') {
+        console.log('📱 Phone verification required');
+        setNeedsVerification(true);
+        setPhoneForVerification(cleanedEmailOrPhone);
+        setError('');
+        // Don't clear form yet - user needs to verify
+        return;
+      }
       
       console.log('Registration successful');
       
@@ -259,34 +309,150 @@ export default function RegisterScreen() {
       setConfirmPassword('');
       setError('');
       
-      // Redirect to login page immediately (no popup/alert)
-      router.replace('/login');
+      // Show success popup and redirect to login
+      Alert.alert(
+        'Success',
+        'You have successfully registered!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.replace('/login');
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     } catch (err: any) {
-      console.error('Registration error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        code: err.code,
-        status: err.status,
-      });
+      // Log errors only in development, not in production
+      if (__DEV__) {
+        console.error('Registration error:', err);
+        console.error('Error details:', {
+          message: err.message,
+          code: err.code,
+          status: err.status,
+        });
+        console.error('❌ Registration error:', err.message || err.error?.message || 'Failed to register. Please try again.');
+      }
       
       const errorMessage = err.message || err.error?.message || 'Failed to register. Please try again.';
-      setError(errorMessage);
       
-      // Set specific field errors if available
+      // Check for phone signups disabled
+      const lowerErrorMessage = errorMessage.toLowerCase();
+      if (lowerErrorMessage.includes('phone signups are disabled') || 
+          lowerErrorMessage.includes('phone signups disabled') ||
+          lowerErrorMessage.includes('phone registration is currently disabled') ||
+          lowerErrorMessage.includes('signups are disabled')) {
+        const phoneDisabledMsg = 'Phone number registration is currently disabled in Supabase. To enable it: Go to Supabase Dashboard → Authentication → Settings → Enable "Phone" provider. Or use Email registration instead.';
+        console.log('🚫 PHONE SIGNUPS DISABLED - Showing error to user');
+        setError(phoneDisabledMsg);
+        setEmailOrPhoneError('Phone registration is disabled');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Set specific field errors if available (but don't duplicate with general error)
       const lowerMessage = errorMessage.toLowerCase();
       if (lowerMessage.includes('email already exists') || lowerMessage.includes('user already registered')) {
         setEmailOrPhoneError('Email already exists');
-      } else if (lowerMessage.includes('mobile number already exists') || lowerMessage.includes('phone')) {
+        // Don't show general error if it's a field-specific error
+        setError('');
+      } else if (lowerMessage.includes('mobile number already exists') || 
+                 (lowerMessage.includes('phone') && lowerMessage.includes('already'))) {
         setEmailOrPhoneError('Mobile number already exists');
+        // Don't show general error if it's a field-specific error
+        setError('');
       } else if (lowerMessage.includes('username already exists')) {
         setUsernameError('Username already exists');
+        // Don't show general error if it's a field-specific error
+        setError('');
       } else if (lowerMessage.includes('invalid email')) {
         setEmailOrPhoneError('Invalid email format');
+        setError('');
       } else if (lowerMessage.includes('invalid phone')) {
         setEmailOrPhoneError('Invalid phone number format');
+        setError('');
+      } else {
+        // For other errors, show general error message
+        setError(errorMessage);
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!verificationCode.trim() || verificationCode.trim().length < 6) {
+      setVerificationError('Please enter the 6-digit verification code');
+      return;
+    }
+
+    setIsVerifying(true);
+    setVerificationError('');
+
+    try {
+      console.log('Verifying OTP code...');
+      await authApi.verifyPhoneOTP(phoneForVerification, verificationCode.trim());
+      
+      console.log('✅ OTP verified successfully');
+      
+      // Clear everything and redirect to login
+      setEmailOrPhone('');
+      setUsername('');
+      setPassword('');
+      setConfirmPassword('');
+      setVerificationCode('');
+      setNeedsVerification(false);
+      setPhoneForVerification('');
+      setError('');
+      
+      // Redirect to login page
+      router.replace('/login');
+    } catch (err: any) {
+      console.error('OTP verification error:', err);
+      const errorMessage = err?.message || 'Invalid verification code. Please try again.';
+      setVerificationError(errorMessage);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setIsVerifying(true);
+    setVerificationError('');
+
+    try {
+      console.log('========================================');
+      console.log('📤 RESENDING OTP');
+      console.log('========================================');
+      console.log('Phone:', phoneForVerification);
+      console.log('========================================');
+      
+      await authApi.resendPhoneOTP(phoneForVerification);
+      setVerificationError('');
+      
+      // Show success message
+      Alert.alert('Code Sent', 'A new verification code has been sent to your phone. If you don\'t receive it, check your Supabase SMS provider configuration.');
+    } catch (err: any) {
+      console.error('========================================');
+      console.error('❌ RESEND OTP ERROR');
+      console.error('========================================');
+      console.error('Error:', err);
+      console.error('Error message:', err?.message);
+      console.error('Error code:', err?.code);
+      console.error('========================================');
+      
+      let errorMessage = err?.message || 'Failed to resend code. Please try again.';
+      
+      // Provide helpful error message if SMS provider is not configured
+      if (err?.message?.includes('SMS') || err?.message?.includes('provider') || err?.code === 'sms_provider_not_configured') {
+        errorMessage = 'SMS provider is not configured in Supabase. Please set up Twilio or another SMS provider in Supabase Dashboard → Authentication → Settings → Phone.';
+      }
+      
+      setVerificationError(errorMessage);
+      Alert.alert('Resend Failed', errorMessage);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -356,7 +522,9 @@ export default function RegisterScreen() {
                       selectedCountry={selectedCountry}
                       onSelect={(country) => {
                         setSelectedCountry(country);
-                        // Keep phone number as is, just update country code
+                        // Clear error when country code changes
+                        setEmailOrPhoneError('');
+                        setError('');
                       }}
                     />
                     <View style={styles.phoneNumberInput}>
@@ -373,11 +541,6 @@ export default function RegisterScreen() {
                       />
                     </View>
                   </View>
-                  {emailOrPhoneError ? (
-                    <Text style={[styles.errorText, { color: isDark ? '#ff453a' : '#ff3b30' }]}>
-                      {emailOrPhoneError}
-                    </Text>
-                  ) : null}
                 </View>
               ) : (
                 <Input
@@ -444,28 +607,88 @@ export default function RegisterScreen() {
                 error={confirmPasswordError}
               />
 
-              {error ? (
-                <Text style={styles.errorText}>{error}</Text>
-              ) : null}
+                    {needsVerification ? (
+                      <View style={styles.verificationContainer}>
+                        <Text style={[styles.verificationTitle, { color: textColor }]}>
+                          Verify Your Phone Number
+                        </Text>
+                        <Text style={[styles.verificationSubtitle, { color: isDark ? '#8e8e93' : '#666' }]}>
+                          We sent a 6-digit code to {phoneForVerification.replace(/(\+\d{1,3})(\d{3})(\d{3})(\d{4})/, '$1 $2-$3-$4')}
+                        </Text>
+                        <View style={[styles.infoBox, { backgroundColor: isDark ? '#2c2c2e' : '#e5e5ea', borderColor: isDark ? '#3a3a3c' : '#c7c7cc' }]}>
+                          <Text style={[styles.infoText, { color: isDark ? '#8e8e93' : '#666' }]}>
+                            💡 Not receiving SMS?{'\n'}
+                            {'\n'}
+                            1. Check Supabase Dashboard → Logs → Auth Logs for OTP codes (for testing){'\n'}
+                            2. Verify Twilio Message Service SID is configured in Supabase Dashboard → Authentication → Settings → Phone{'\n'}
+                            3. For Twilio trial accounts, verify your phone number in Twilio Console → Phone Numbers → Verified Caller IDs{'\n'}
+                            4. Check Twilio Console → Monitor → Logs for SMS delivery status{'\n'}
+                            5. Try clicking "Resend Code" below
+                          </Text>
+                        </View>
+                  
+                  <Input
+                    label="Verification Code"
+                    value={verificationCode}
+                    onChangeText={(text) => {
+                      // Only allow digits, max 6
+                      const digits = text.replace(/\D/g, '').slice(0, 6);
+                      setVerificationCode(digits);
+                      setVerificationError('');
+                    }}
+                    placeholder="123456"
+                    keyboardType="number-pad"
+                    autoComplete="sms-otp"
+                    maxLength={6}
+                    error={verificationError}
+                    containerStyle={{ marginTop: 16 }}
+                  />
 
-              <Button
-                title={isLoading ? 'Signing Up...' : 'Sign Up'}
-                onPress={handleRegister}
-                disabled={isLoading || !isFormValid()}
-                style={styles.button}
-              />
+                  <Button
+                    title={isVerifying ? 'Verifying...' : 'Verify Code'}
+                    onPress={handleVerifyOTP}
+                    disabled={isVerifying || verificationCode.trim().length !== 6}
+                    style={styles.button}
+                  />
 
-              <View style={styles.footer}>
-                <Text style={[styles.footerText, { color: textColor }]}>
-                  Already have an account?{' '}
-                </Text>
-                <Text
-                  style={[styles.link, { color: isDark ? '#0a84ff' : '#007aff' }]}
-                  onPress={navigateToLogin}
-                >
-                  Sign In
-                </Text>
-              </View>
+                  <TouchableOpacity
+                    onPress={handleResendOTP}
+                    disabled={isVerifying}
+                    style={styles.resendButton}
+                  >
+                    <Text style={[styles.resendText, { color: isDark ? '#0a84ff' : '#007aff' }]}>
+                      Resend Code
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {error ? (
+                    <Text style={styles.errorText}>{error}</Text>
+                  ) : null}
+
+                  <Button
+                    title={isLoading ? 'Signing Up...' : 'Sign Up'}
+                    onPress={handleRegister}
+                    disabled={isLoading || !isFormValid()}
+                    style={styles.button}
+                  />
+                </>
+              )}
+
+              {!needsVerification && (
+                <View style={styles.footer}>
+                  <Text style={[styles.footerText, { color: textColor }]}>
+                    Already have an account?{' '}
+                  </Text>
+                  <Text
+                    style={[styles.link, { color: isDark ? '#0a84ff' : '#007aff' }]}
+                    onPress={navigateToLogin}
+                  >
+                    Sign In
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -560,5 +783,42 @@ const styles = StyleSheet.create({
   },
   phoneNumberInput: {
     flex: 1,
+  },
+  verificationContainer: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  verificationTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  verificationSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  resendButton: {
+    marginTop: 16,
+    alignItems: 'center',
+    padding: 12,
+  },
+  resendText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  infoBox: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  infoText: {
+    fontSize: 12,
+    lineHeight: 16,
   },
 });
