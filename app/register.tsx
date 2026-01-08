@@ -569,7 +569,7 @@ export default function RegisterScreen() {
                   setError('');
                 }}
                 onBlur={handleUsernameBlur}
-                placeholder="pokerKing99"
+                placeholder="Username"
                 autoCapitalize="none"
                 autoComplete="username"
                 error={usernameError}

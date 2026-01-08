@@ -99,7 +99,7 @@ export default function LoginScreen() {
                       ? 'user@example.com'
                       : inputType === 'phone'
                       ? '+1 987-654-3210'
-                      : 'pokerKing99'
+                      : 'Enter your username'
                   }
                   autoCapitalize="none"
                   keyboardType={

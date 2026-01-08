@@ -3,10 +3,10 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, ReactNode } from 'react';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { PokerProvider } from '../context/PokerContext';
-import { AuthProvider, useAuth } from '../context/AuthContext';
+import { AuthProvider } from '../context/AuthContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -46,7 +46,7 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
-        <PokerProviderWrapper>
+        <PokerProvider>
           <Stack>
             <Stack.Screen
               name="index"
@@ -65,20 +65,10 @@ function RootLayoutNav() {
               options={{ headerShown: false }}
             />
           </Stack>
-        </PokerProviderWrapper>
+        </PokerProvider>
       </AuthProvider>
     </ThemeProvider>
   );
 }
 
-// Wrapper component to force re-render when user changes (helps with browser caching)
-function PokerProviderWrapper({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  
-  return (
-    <PokerProvider key={user?.id || 'no-user'}>
-      {children}
-    </PokerProvider>
-  );
-}
 

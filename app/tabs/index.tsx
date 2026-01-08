@@ -57,6 +57,11 @@ export default function HomeScreen() {
 
   const handleStartSession = () => {
     console.log('Starting session with name:', sessionName, 'pot value:', potValue, 'and mode:', potMode);
+    
+    // Clear any previous errors
+    setError('');
+    
+    // Validate session name first
     if (!sessionName.trim()) {
       setError('Please enter a session name');
       return;
@@ -75,6 +80,7 @@ export default function HomeScreen() {
       startSession(sessionName.trim(), 0, potMode);
     }
     
+    // Clear form only on success
     setSessionName('');
     setPotValue('');
     setPotMode('fixed');
@@ -227,9 +233,18 @@ export default function HomeScreen() {
               <TextInput
                 style={styles.input}
                 value={sessionName}
-                onChangeText={setSessionName}
+                onChangeText={(text) => {
+                  setSessionName(text);
+                  // Clear error when user starts typing
+                  if (error && text.trim()) {
+                    setError('');
+                  }
+                }}
                 placeholder="Enter session name"
               />
+              {error && error.includes('session name') && (
+                <Text style={styles.error}>{error}</Text>
+              )}
             </View>
             
             <View style={styles.inputContainer}>
@@ -272,11 +287,19 @@ export default function HomeScreen() {
                 <TextInput
                   style={styles.input}
                   value={potValue}
-                  onChangeText={setPotValue}
+                  onChangeText={(text) => {
+                    setPotValue(text);
+                    // Clear error when user starts typing
+                    if (error && text.trim()) {
+                      setError('');
+                    }
+                  }}
                   keyboardType="decimal-pad"
                   placeholder="Enter pot value"
                 />
-                {error && <Text style={styles.error}>{error}</Text>}
+                {error && error.includes('pot value') && (
+                  <Text style={styles.error}>{error}</Text>
+                )}
               </View>
             )}
             
