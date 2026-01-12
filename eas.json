@@ -32,7 +32,11 @@
   },
   "submit": {
     "production": {
-      
+      "ios": {
+        "appleId": "pokertrack07@gmail.com",
+        "ascAppId": "6757585976",
+        "appleTeamId": "S2Q8D6K32R"
+      }
     }
   }
 }
