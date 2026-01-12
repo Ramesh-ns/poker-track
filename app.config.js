@@ -20,17 +20,18 @@ if (process.env.NODE_ENV !== 'production') {
 
 module.exports = {
   expo: {
-    name: 'poker-track',
+    name: 'Poker Track',
     slug: 'poker-track',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
-    scheme: 'myapp',
+    scheme: 'pokertrack',
     userInterfaceStyle: 'automatic',
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.anonymous.poker-track',
+      bundleIdentifier: 'com.pokertrack.app',
+      buildNumber: '1',
     },
     android: {
       adaptiveIcon: {
@@ -65,6 +66,10 @@ module.exports = {
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
       // Environment indicator
       environment: process.env.NODE_ENV || 'development',
+      // EAS project linking
+      eas: {
+        projectId: 'fc300c6b-bce1-462a-b07b-3f63c777bb43',
+      },
     },
   },
 };

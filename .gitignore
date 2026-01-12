@@ -41,6 +41,4 @@ yarn-error.*
 
 app-example
 
-lib/supabase.ts
-
 *.md
