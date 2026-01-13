@@ -10,6 +10,10 @@ interface AuthContextType {
   signUp: (emailOrPhone: string, password: string, username?: string, isPhone?: boolean) => Promise<any>;
   signIn: (identifier: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  resetPasswordForPhone: (phone: string) => Promise<any>;
+  verifyPhoneOTPForPasswordReset: (phone: string, token: string) => Promise<any>;
+  updatePassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -86,6 +90,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    setIsLoading(true);
+    try {
+      await authApi.resetPasswordForEmail(email);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetPasswordForPhone = async (phone: string) => {
+    setIsLoading(true);
+    try {
+      return await authApi.resetPasswordForPhone(phone);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyPhoneOTPForPasswordReset = async (phone: string, token: string) => {
+    setIsLoading(true);
+    try {
+      return await authApi.verifyPhoneOTPForPasswordReset(phone, token);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    setIsLoading(true);
+    try {
+      await authApi.updatePassword(newPassword);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -95,6 +135,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signIn,
         signOut,
+        resetPassword,
+        resetPasswordForPhone,
+        verifyPhoneOTPForPasswordReset,
+        updatePassword,
       }}
     >
       {children}

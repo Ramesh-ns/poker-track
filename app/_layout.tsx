@@ -61,6 +61,18 @@ function RootLayoutNav() {
               options={{ headerShown: false }}
             />
             <Stack.Screen
+              name="forgot-password"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="reset-password"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="verify-otp-reset"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
               name="tabs"
               options={{ headerShown: false }}
             />

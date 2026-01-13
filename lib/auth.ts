@@ -722,3 +722,172 @@ export async function getCurrentUser() {
   return user;
 }
 
+// Reset password for email
+export async function resetPasswordForEmail(email: string) {
+  console.log('📧 Requesting password reset for email:', email);
+  
+  // Validate email format
+  if (!isEmail(email)) {
+    throw new Error('Please enter a valid email address.');
+  }
+  
+  // For mobile apps, we need to use a web URL that Supabase can send in emails
+  // The web URL should redirect to the app using the custom scheme
+  // Format: https://yourdomain.com/reset-password or use custom scheme if Supabase allows it
+  // 
+  // Option 1: Use web URL (recommended for production)
+  // Set EXPO_PUBLIC_RESET_PASSWORD_URL=https://yourdomain.com/reset-password
+  // 
+  // Option 2: Use custom scheme (works if Supabase allows it)
+  // Set EXPO_PUBLIC_RESET_PASSWORD_URL=pokertrack://reset-password
+  //
+  // For now, we'll try custom scheme first, fallback to web URL pattern
+  const redirectUrl = 
+    process.env.EXPO_PUBLIC_RESET_PASSWORD_URL || 
+    process.env.EXPO_PUBLIC_APP_URL || 
+    'pokertrack://reset-password';
+  
+  console.log('🔗 Using redirect URL:', redirectUrl);
+  
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: redirectUrl,
+  });
+  
+  if (error) {
+    console.error('❌ Password reset error:', error);
+    
+    // Provide user-friendly error messages
+    if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+      throw new Error('Too many password reset requests. Please try again later.');
+    }
+    
+    if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+      // Don't reveal if email exists for security, but still show success message
+      // Supabase will send email even if user doesn't exist (to prevent email enumeration)
+      console.log('Email not found, but reset email sent anyway (security measure)');
+    }
+    
+    throw new Error(error.message || 'Failed to send password reset email. Please try again.');
+  }
+  
+  console.log('✅ Password reset email sent successfully');
+  return data;
+}
+
+// Reset password for phone (sends OTP)
+export async function resetPasswordForPhone(phone: string) {
+  console.log('📱 Requesting password reset for phone:', phone);
+  
+  // Clean phone number
+  let cleanedPhone = phone.replace(/[^\d+]/g, '');
+  if (!cleanedPhone.startsWith('+')) {
+    cleanedPhone = '+' + cleanedPhone;
+  }
+  
+  // Validate phone format
+  const phoneDigits = cleanedPhone.replace(/[^\d]/g, '');
+  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+    throw new Error('Invalid phone number format. Phone number must be between 10-15 digits (including country code).');
+  }
+  
+  // Send OTP for password recovery
+  const { data, error } = await supabase.auth.signInWithOtp({
+    phone: cleanedPhone,
+    options: {
+      shouldCreateUser: false, // Don't create user if doesn't exist
+      channel: 'sms',
+    },
+  });
+  
+  if (error) {
+    console.error('❌ Phone password reset error:', error);
+    
+    // Provide user-friendly error messages
+    if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+      throw new Error('Too many password reset requests. Please try again later.');
+    }
+    
+    if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+      // Don't reveal if phone exists for security
+      console.log('Phone not found, but OTP sent anyway (security measure)');
+    }
+    
+    // Check for SMS/Twilio errors
+    if (error.code === 'sms_send_failed' || error.message?.includes('SMS') || error.message?.includes('Twilio')) {
+      throw new Error('Failed to send SMS. Please check your phone number and try again.');
+    }
+    
+    throw new Error(error.message || 'Failed to send password reset code. Please try again.');
+  }
+  
+  console.log('✅ Password reset OTP sent successfully');
+  return { ...data, phone: cleanedPhone };
+}
+
+// Verify phone OTP for password reset
+export async function verifyPhoneOTPForPasswordReset(phone: string, token: string) {
+  console.log('🔐 Verifying OTP for password reset...');
+  
+  // Clean phone number
+  let cleanedPhone = phone.replace(/[^\d+]/g, '');
+  if (!cleanedPhone.startsWith('+')) {
+    cleanedPhone = '+' + cleanedPhone;
+  }
+  
+  console.log('Phone:', cleanedPhone);
+  console.log('OTP token:', token.trim());
+  
+  // Verify OTP - this will create a session if valid
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: cleanedPhone,
+    token: token.trim(),
+    type: 'sms',
+  });
+  
+  if (error) {
+    console.error('❌ OTP verification error:', error);
+    
+    if (error.message?.includes('expired') || error.message?.includes('invalid')) {
+      throw new Error('Invalid or expired verification code. Please request a new code.');
+    }
+    
+    throw new Error(error.message || 'Failed to verify code. Please try again.');
+  }
+  
+  console.log('✅ OTP verified successfully for password reset');
+  console.log('Session created:', !!data.session);
+  
+  // Return data with session - user can now update password
+  return data;
+}
+
+// Update password (used after clicking reset link or verifying OTP)
+export async function updatePassword(newPassword: string) {
+  console.log('🔐 Updating password...');
+  
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error('Password must be at least 6 characters long.');
+  }
+  
+  const { data, error } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
+  
+  if (error) {
+    console.error('❌ Password update error:', error);
+    
+    if (error.message?.includes('expired') || error.message?.includes('invalid')) {
+      throw new Error('Password reset link has expired. Please request a new one.');
+    }
+    
+    if (error.message?.includes('session') || error.message?.includes('not authenticated')) {
+      throw new Error('Your session has expired. Please request a new password reset.');
+    }
+    
+    throw new Error(error.message || 'Failed to update password. Please try again.');
+  }
+  
+  console.log('✅ Password updated successfully');
+  return data;
+}
+

@@ -118,18 +118,26 @@ export default function LoginScreen() {
                 )}
               </View>
 
-              <Input
-                label="Password"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  setError('');
-                }}
-                placeholder="Enter your password"
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="password"
-              />
+              <View>
+                <Input
+                  label="Password"
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setError('');
+                  }}
+                  placeholder="Enter your password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="password"
+                />
+                <Text
+                  style={[styles.forgotPasswordLink, { color: isDark ? '#0a84ff' : '#007aff' }]}
+                  onPress={() => router.push('/forgot-password')}
+                >
+                  Forgot Password?
+                </Text>
+              </View>
 
               {error ? (
                 <Text style={styles.errorText}>{error}</Text>
@@ -198,6 +206,13 @@ const styles = StyleSheet.create({
     marginTop: -12,
     marginBottom: 8,
     marginLeft: 4,
+  },
+  forgotPasswordLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'right',
+    marginTop: 8,
+    marginBottom: 8,
   },
   button: {
     marginTop: 8,
