@@ -12,6 +12,7 @@ interface PokerContextType {
   startSession: (sessionName: string, potValue: number, potMode: 'fixed' | 'direct') => Promise<void>;
   endSession: () => Promise<void>;
   addPlayer: (name: string) => Promise<void>;
+  deletePlayer: (playerId: string) => Promise<void>;
   updatePotsTaken: (playerId: string, potsTaken: number) => Promise<void>;
   updatePotsReturned: (playerId: string, potsReturned: number) => Promise<void>;
   getSessionSummary: () => SessionSummary | null;
@@ -63,10 +64,6 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     
     // If user changed (different user or logged out), clear all data immediately
     if (lastUserId !== null && lastUserId !== currentUserId) {
-      console.log('🔄 User changed - clearing all poker data');
-      console.log('   Previous user:', lastUserId);
-      console.log('   Current user:', currentUserId);
-      
       // Clear all state synchronously
       setSession(null);
       setPreviousSessions([]);
@@ -80,7 +77,6 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     
     // Fetch sessions when user is logged in (only if not already fetching)
     if (currentUserId && authSession && !isFetchingRef.current) {
-      console.log('🔄 User logged in - fetching fresh data for user:', currentUserId);
       isFetchingRef.current = true;
       // Use setTimeout to ensure state updates are processed first (helps with browser)
       setTimeout(() => {
@@ -89,7 +85,6 @@ export function PokerProvider({ children }: { children: ReactNode }) {
         });
       }, 50);
     } else if (!currentUserId) {
-      console.log('🔄 No user - clearing all data');
       setSession(null);
       setPreviousSessions([]);
       setPlayers([]);
@@ -101,13 +96,11 @@ export function PokerProvider({ children }: { children: ReactNode }) {
   const fetchSessions = useCallback(async () => {
     // Don't fetch if no user is logged in
     if (!user || !authSession) {
-      console.log('⏸️ No user logged in - skipping fetchSessions');
       return;
     }
     
     // Prevent duplicate fetches
     if (isFetchingRef.current) {
-      console.log('⏸️ Already fetching sessions - skipping');
       return;
     }
     
@@ -115,12 +108,10 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      console.log('📥 Fetching sessions for user:', user.id);
       const data = await api.fetchSessions();
       
       // Verify we're still fetching for the same user
       if (lastUserIdRef.current !== user.id) {
-        console.log('⚠️ User changed during fetch - discarding results');
         return;
       }
       
@@ -135,17 +126,22 @@ export function PokerProvider({ children }: { children: ReactNode }) {
       
       // Double-check user hasn't changed
       if (lastUserIdRef.current !== user.id) {
-        console.log('⚠️ User changed after fetch - discarding results');
         return;
       }
-      
-      console.log('✅ Fetched', sessionsWithPlayers.length, 'sessions');
       setPreviousSessions(sessionsWithPlayers);
       // Optionally set current session if there's an active one
+      // Only update if we don't already have a session, or if the current session is not in the list
       const active = sessionsWithPlayers.find((s: Session) => s.isActive);
-      setSession(active || null);
+      setSession(prevSession => {
+        // If we have a current session and it's still active, keep it (don't overwrite with potentially stale data)
+        if (prevSession && prevSession.isActive && active && active.id === prevSession.id) {
+          // Don't overwrite - keep the current session state
+          return prevSession;
+        }
+        // Otherwise, use the fetched session
+        return active || null;
+      });
     } catch (err: any) {
-      console.error('❌ Error fetching sessions:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -222,6 +218,62 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deletePlayer = useCallback(async (playerId: string) => {
+    if (!session) {
+      throw new Error('No active session');
+    }
+    const currentSessionId = session.id; // Capture session ID to avoid closure issues
+    setIsLoading(true);
+    setError(null);
+    try {
+      await api.deletePlayer(playerId);
+      
+      // Small delay to ensure database delete is committed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Fetch updated players list
+      const updatedPlayers = await api.fetchPlayers(currentSessionId);
+      const mappedPlayers = updatedPlayers?.map((dbPlayer: any) => mapDbPlayerToPlayer(dbPlayer)) || [];
+      
+      // Verify the deleted player is not in the list
+      const deletedPlayerStillExists = mappedPlayers.some(p => p.id === playerId);
+      if (deletedPlayerStillExists) {
+        // Retry fetch after a delay
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const retryPlayers = await api.fetchPlayers(currentSessionId);
+        const retryMapped = retryPlayers?.map((dbPlayer: any) => mapDbPlayerToPlayer(dbPlayer)) || [];
+        if (retryMapped.length < mappedPlayers.length) {
+          mappedPlayers.length = 0;
+          mappedPlayers.push(...retryMapped);
+        }
+      }
+      
+      // Update both players state and session state
+      // Create a new array reference to ensure React detects the change
+      const newPlayersArray = [...mappedPlayers];
+      setPlayers(newPlayersArray);
+      
+      // Force update session state - use functional update to ensure we get latest state
+      // Create a completely new object to ensure React detects the change
+      setSession(prevSession => {
+        if (!prevSession || prevSession.id !== currentSessionId) {
+          return prevSession;
+        }
+        // Create a new session object with new players array
+        const updatedSession: Session = {
+          ...prevSession,
+          players: newPlayersArray // Use the new array reference
+        };
+        return updatedSession;
+      });
+    } catch (err: any) {
+      setError(err.message);
+      throw err; // Re-throw so the component can handle it
+    } finally {
+      setIsLoading(false);
+    }
+  }, [session]);
+
   const updatePotsTaken = async (playerId: string, potsTaken: number) => {
     setIsLoading(true);
     setError(null);
@@ -297,6 +349,7 @@ export function PokerProvider({ children }: { children: ReactNode }) {
         startSession,
         endSession,
         addPlayer,
+        deletePlayer,
         updatePotsTaken,
         updatePotsReturned,
         getSessionSummary,

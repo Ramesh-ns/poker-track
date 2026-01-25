@@ -23,7 +23,8 @@ export default function HomeScreen() {
     session, 
     previousSessions, 
     startSession, 
-    addPlayer, 
+    addPlayer,
+    deletePlayer,
     endSession,
     updatePotsTaken,
     updatePotsReturned,
@@ -35,18 +36,9 @@ export default function HomeScreen() {
   const [playerName, setPlayerName] = useState('');
   const [error, setError] = useState('');
 
-  // Debug logging
-  useEffect(() => {
-    console.log('HomeScreen rendered');
-    console.log('User:', user?.id);
-    console.log('Session:', session);
-    console.log('Previous sessions:', previousSessions);
-  }, [session, previousSessions, user?.id]);
-
   // Force refresh when user changes (for browser compatibility)
   useEffect(() => {
     if (user?.id) {
-      console.log('🔄 HomeScreen: User detected, ensuring fresh data');
       // Small delay to ensure auth state is fully updated
       const timer = setTimeout(() => {
         fetchSessions();
@@ -372,7 +364,7 @@ export default function HomeScreen() {
                 onUpdatePotsReturned={(playerId, potsReturned) => {
                   updatePotsReturned(playerId, potsReturned);
                 }}
-                onDeletePlayer={() => {}}
+                onDeletePlayer={deletePlayer}
                 isEndingSession={false}
               />
             ))

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { Player } from '../types/poker';
 import { Button } from './Button';
@@ -11,7 +11,7 @@ interface PlayerCardProps {
   potMode: 'fixed' | 'direct';
   onUpdatePotsTaken: (playerId: string, value: number) => void;
   onUpdatePotsReturned: (playerId: string, value: number) => void;
-  onDeletePlayer: (playerId: string) => void;
+  onDeletePlayer: (playerId: string) => Promise<void>;
   isEndingSession: boolean;
   isReadOnly?: boolean;
 }
@@ -43,14 +43,44 @@ export function PlayerCard({
       : ''
   );
   
-  const [potsTakenInput, setPotsTakenInput] = useState<string>(
-    player.potsTaken.toString()
-  );
+  // Track individual pot additions for calculation display
+  // Initialize from current potsTaken value
+  const [potHistory, setPotHistory] = useState<number[]>(() => {
+    // If player already has pots taken, we need to reconstruct history
+    // For fixed mode: potsTaken is the count, so create array of 1s
+    // For direct mode: potsTaken is the total amount, we'll need to track from now on
+    if (player.potsTaken > 0) {
+      if (potMode === 'fixed') {
+        // For fixed mode, each pot is 1, so create array of 1s
+        return Array(Math.floor(player.potsTaken)).fill(1);
+      } else {
+        // For direct mode, we can't perfectly reconstruct history, but we can
+        // try to divide by potValue to get an estimate, or start fresh
+        // Starting fresh is safer - user can continue adding from current total
+        return [];
+      }
+    }
+    return [];
+  });
 
-  // Sync local state with player data
+  // Input value for pots taken (temporary, not saved until + button is clicked)
+  const [potsTakenInput, setPotsTakenInput] = useState<string>('');
+
+  // Sync pot history when player changes or when potsTaken changes externally
   useEffect(() => {
-    setPotsTakenInput(player.potsTaken.toString());
-  }, [player.potsTaken]);
+    // Only update if our calculated total doesn't match player.potsTaken
+    const calculatedTotal = potHistory.reduce((sum, val) => sum + val, 0);
+    if (Math.abs(calculatedTotal - player.potsTaken) > 0.01) {
+      // There's a mismatch - update history
+      if (potMode === 'fixed' && player.potsTaken > 0) {
+        setPotHistory(Array(Math.floor(player.potsTaken)).fill(1));
+      } else if (potMode === 'direct' && player.potsTaken > 0 && potHistory.length === 0) {
+        // For direct mode, if we have no history but player has potsTaken,
+        // we can't reconstruct perfectly, so keep empty history
+        // The display will show the current total from player.potsTaken
+      }
+    }
+  }, [player.potsTaken, player.id, potMode]);
 
   useEffect(() => {
     setPotsReturnedInput(
@@ -107,30 +137,109 @@ export function PlayerCard({
     }
   };
 
-  const handleIncrementPotsTaken = () => {
-    const currentValue = parseFloat(potsTakenInput) || 0;
-    const newValue = currentValue + 1;
-    setPotsTakenInput(newValue.toString());
-    onUpdatePotsTaken(player.id, newValue);
+  // Handle adding a pot (button click) - reads value from input
+  const handleAddPot = () => {
+    // Get the value from the input field
+    const inputValue = parseFloat(potsTakenInput) || 0;
+    
+    if (inputValue <= 0) {
+      // Don't add if input is empty or invalid
+      return;
+    }
+    
+    // Add the input value to history
+    const newHistory = [...potHistory, inputValue];
+    setPotHistory(newHistory);
+    
+    // Calculate total from history
+    const total = newHistory.reduce((sum, val) => sum + val, 0);
+    onUpdatePotsTaken(player.id, total);
+    
+    // Clear the input for next entry
+    setPotsTakenInput('');
   };
 
-  const handleDecrementPotsTaken = () => {
-    const currentValue = parseFloat(potsTakenInput) || 0;
-    if (currentValue > 0) {
-      const newValue = currentValue - 1;
-      setPotsTakenInput(newValue.toString());
-      onUpdatePotsTaken(player.id, newValue);
+  // Handle manual input change for pots taken (just updates local state, doesn't save)
+  const handlePotsTakenInputChange = (text: string) => {
+    // Only allow numbers and decimal point
+    const cleanedText = text.replace(/[^0-9.]/g, '');
+    setPotsTakenInput(cleanedText);
+  };
+
+  // Calculate total from pot history
+  const calculatedPotsTaken = potHistory.reduce((sum, val) => sum + val, 0);
+  
+  // Display the calculated total (from history), not the input value
+  const displayPotsTaken = calculatedPotsTaken;
+  
+  // Generate calculation string
+  const getCalculationString = (): string => {
+    if (potHistory.length === 0) {
+      return 'Total: 0';
+    }
+    
+    const total = potHistory.reduce((sum, val) => sum + val, 0);
+    
+    // If only one entry, just show the value without calculation
+    if (potHistory.length === 1) {
+      if (potMode === 'fixed') {
+        return `Total: ${total}`;
+      } else {
+        return `Total: $${total.toFixed(2)}`;
+      }
+    }
+    
+    // If multiple entries, show calculation with equals
+    // Format: Total: $25+$25 = $50
+    if (potMode === 'fixed') {
+      // Show as: Total: 1+2+1 = 4 (pot count, not dollar amount)
+      const calculation = potHistory.join('+');
+      return `Total: ${calculation} = ${total}`;
+    } else {
+      // Show as: Total: $25.00+$25.00 = $50.00
+      const calculation = potHistory.map(val => `$${val.toFixed(2)}`).join('+');
+      return `Total: ${calculation} = $${total.toFixed(2)}`;
     }
   };
 
   const handleDeletePlayer = () => {
-    onDeletePlayer(player.id);
+    // Only allow deletion if no pots/amount have been taken
+    if (calculatedPotsTaken > 0) {
+      return;
+    }
+
+    // Show confirmation dialog
+    Alert.alert(
+      'Delete Player',
+      `Are you sure you want to delete ${player.name}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await onDeletePlayer(player.id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete player. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
+  // Check if player can be deleted (only if no pots/amount taken)
+  const canDeletePlayer = calculatedPotsTaken === 0;
+
   // Calculate values based on pot mode
+  // Use calculatedPotsTaken from history
   const totalPotsTakenValue = potMode === 'direct' 
-    ? player.potsTaken 
-    : player.potsTaken * potValue;
+    ? calculatedPotsTaken 
+    : calculatedPotsTaken * potValue;
   const totalPotsReturnedValue = potMode === 'direct'
     ? (player.potsReturned ?? 0)
     : (player.potsReturned ?? 0) * potValue;
@@ -149,10 +258,18 @@ export function PlayerCard({
         <Text style={[styles.playerName, { color: textColor }]}>{player.name}</Text>
         {!isReadOnly && (
           <TouchableOpacity
-            style={styles.deleteButton}
+            style={[
+              styles.deleteButton,
+              !canDeletePlayer && styles.deleteButtonDisabled
+            ]}
             onPress={handleDeletePlayer}
+            disabled={!canDeletePlayer}
           >
-            <Ionicons name="trash-outline" size={20} color={negativeColor} />
+            <Ionicons 
+              name="trash-outline" 
+              size={20} 
+              color={canDeletePlayer ? negativeColor : (isDark ? '#666' : '#999')} 
+            />
           </TouchableOpacity>
         )}
       </View>
@@ -162,75 +279,59 @@ export function PlayerCard({
           <Text style={[styles.potLabel, { color: textColor }]}>
             {potMode === 'direct' ? 'Amount Taken' : 'Pots Taken'}
           </Text>
-          {potMode === 'direct' ? (
-            // Direct mode: Show dollar amount input with text field
-            !isReadOnly ? (
-              <>
-                <View style={styles.potControls}>
-                  <TouchableOpacity
-                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
-                    onPress={handleDecrementPotsTaken}
-                  >
-                    <Ionicons name="remove" size={20} color={textColor} />
-                  </TouchableOpacity>
-                  <TextInput
-                    style={[
-                      styles.potsReturnedInput, 
-                      { 
-                        color: textColor, 
-                        borderColor: borderColor 
-                      }
-                    ]}
-                    value={potsTakenInput}
-                    onChangeText={(text) => {
-                      setPotsTakenInput(text);
-                      const numericValue = parseFloat(text) || 0;
-                      onUpdatePotsTaken(player.id, numericValue);
-                    }}
-                    keyboardType="decimal-pad"
-                    placeholder="0"
-                  />
-                  <TouchableOpacity
-                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
-                    onPress={handleIncrementPotsTaken}
-                  >
-                    <Ionicons name="add" size={20} color={textColor} />
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <Text style={[styles.potAmount, { color: textColor, fontSize: 18 }]}>
-                {'$' + totalPotsTakenValue.toFixed(2)}
-              </Text>
-            )
-          ) : (
-            // Fixed mode: Show pot count and dollar amount
+          {!isReadOnly ? (
             <>
-              {!isReadOnly ? (
-                <View style={styles.potControls}>
-                  <TouchableOpacity
-                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
-                    onPress={handleDecrementPotsTaken}
-                  >
-                    <Ionicons name="remove" size={20} color={textColor} />
-                  </TouchableOpacity>
-                  <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
-                  <TouchableOpacity
-                    style={[styles.potButton, { backgroundColor: buttonBackgroundColor }]}
-                    onPress={handleIncrementPotsTaken}
-                  >
-                    <Ionicons name="add" size={20} color={textColor} />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.readOnlyContainer}>
-                  <Text style={[styles.potValue, { color: textColor }]}>{player.potsTaken.toString()}</Text>
-                  <Text style={[styles.potAmount, { color: textColor }]}>
-                    {'$' + totalPotsTakenValue.toFixed(2)}
+              <View style={styles.potInputContainer}>
+                <TextInput
+                  style={[
+                    styles.potsTakenInput, 
+                    { 
+                      color: textColor, 
+                      borderColor: borderColor 
+                    }
+                  ]}
+                  value={potsTakenInput}
+                  onChangeText={handlePotsTakenInputChange}
+                  keyboardType="decimal-pad"
+                  placeholder={potMode === 'direct' ? "Enter amount" : "Enter pots"}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.addPotButtonSmall, 
+                    { 
+                      backgroundColor: positiveColor,
+                      opacity: (parseFloat(potsTakenInput) || 0) > 0 ? 1 : 0.5
+                    }
+                  ]}
+                  onPress={handleAddPot}
+                  disabled={(parseFloat(potsTakenInput) || 0) <= 0}
+                >
+                  <Ionicons name="add" size={20} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+              {potHistory.length > 0 && (
+                <View style={[styles.calculationContainer, { backgroundColor: buttonBackgroundColor }]}>
+                  <Text style={[styles.calculationText, { color: textColor }]}>
+                    {getCalculationString()}
                   </Text>
                 </View>
               )}
             </>
+          ) : (
+            <View style={styles.readOnlyContainer}>
+              {potMode === 'fixed' ? (
+                <>
+                  <Text style={[styles.potValue, { color: textColor }]}>{displayPotsTaken.toString()}</Text>
+                  <Text style={[styles.potAmount, { color: textColor }]}>
+                    {'$' + totalPotsTakenValue.toFixed(2)}
+                  </Text>
+                </>
+              ) : (
+                <Text style={[styles.potAmount, { color: textColor, fontSize: 18 }]}>
+                  {'$' + totalPotsTakenValue.toFixed(2)}
+                </Text>
+              )}
+            </View>
           )}
         </View>
 
@@ -454,6 +555,9 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
   },
+  deleteButtonDisabled: {
+    opacity: 0.4,
+  },
   potsContainer: {
     marginBottom: 12,
   },
@@ -515,5 +619,44 @@ const styles = StyleSheet.create({
   netBalanceValue: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  potInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  potsTakenInput: {
+    flex: 1,
+    fontSize: 18,
+    height: 44,
+    textAlign: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    marginRight: 8,
+  },
+  addPotButtonSmall: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calculationContainer: {
+    marginTop: 8,
+    padding: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  calculationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'monospace',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+    opacity: 0.7,
+    fontStyle: 'italic',
   },
 }); 

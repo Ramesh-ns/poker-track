@@ -93,4 +93,17 @@ export async function updatePotsReturned(playerId: string, potsReturned: number)
     .single();
   if (error) throw error;
   return data;
+}
+
+// Delete player
+export async function deletePlayer(playerId: string) {
+  const { data, error } = await supabase
+    .from('players')
+    .delete()
+    .eq('id', playerId)
+    .select();
+  if (error) {
+    throw error;
+  }
+  return { success: true, deletedRows: data?.length || 0 };
 } 

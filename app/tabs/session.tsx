@@ -11,7 +11,7 @@ import { Colors } from '../../constants/Colors';
 export default function SessionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { session, addPlayer, updatePotsTaken, updatePotsReturned, endSession } = usePoker();
+  const { session, addPlayer, deletePlayer, updatePotsTaken, updatePotsReturned, endSession } = usePoker();
   
   const [playerName, setPlayerName] = useState('');
   const [isEndingSession, setIsEndingSession] = useState(false);
@@ -165,7 +165,7 @@ export default function SessionScreen() {
               potMode={session.potMode}
               onUpdatePotsTaken={updatePotsTaken}
               onUpdatePotsReturned={updatePotsReturned}
-              onDeletePlayer={() => {}}
+              onDeletePlayer={deletePlayer}
               isEndingSession={isEndingSession}
               isReadOnly={!session.isActive}
             />
