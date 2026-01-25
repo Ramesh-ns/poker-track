@@ -30,35 +30,6 @@ export default function ResetPasswordScreen() {
       return;
     }
 
-    const handleDeepLink = async () => {
-      try {
-        // Get the initial URL (when app opens from deep link)
-        const initialUrl = await Linking.getInitialURL();
-        
-        // Also listen for URL events (when app is already open)
-        const subscription = Linking.addEventListener('url', handleUrl);
-        
-        if (initialUrl) {
-          await processResetUrl(initialUrl);
-        } else {
-          // If no deep link, check if user can still reset (maybe they navigated directly)
-          // Allow manual password reset if they have a valid session
-          setIsValidatingToken(false);
-        }
-        
-        return () => {
-          subscription.remove();
-        };
-      } catch (err) {
-        console.error('Error handling deep link:', err);
-        setIsValidatingToken(false);
-      }
-    };
-
-    const handleUrl = async (event: { url: string }) => {
-      await processResetUrl(event.url);
-    };
-
     const processResetUrl = async (url: string) => {
       try {
         console.log('Processing reset password URL:', url);
@@ -95,8 +66,42 @@ export default function ResetPasswordScreen() {
       }
     };
 
+    const handleUrl = async (event: { url: string }) => {
+      await processResetUrl(event.url);
+    };
+
+    let subscription: { remove: () => void } | null = null;
+
+    const handleDeepLink = async () => {
+      try {
+        // Get the initial URL (when app opens from deep link)
+        const initialUrl = await Linking.getInitialURL();
+        
+        // Also listen for URL events (when app is already open)
+        subscription = Linking.addEventListener('url', handleUrl);
+        
+        if (initialUrl) {
+          await processResetUrl(initialUrl);
+        } else {
+          // If no deep link, check if user can still reset (maybe they navigated directly)
+          // Allow manual password reset if they have a valid session
+          setIsValidatingToken(false);
+        }
+      } catch (err) {
+        console.error('Error handling deep link:', err);
+        setIsValidatingToken(false);
+      }
+    };
+
     handleDeepLink();
-  }, []);
+
+    // Cleanup function
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, [params.fromPhone, params.hash]);
 
   const handleResetPassword = async () => {
     // Validation

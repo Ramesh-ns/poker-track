@@ -76,9 +76,8 @@ export default function SessionScreen() {
             endSession();
             
             // Navigate to the home screen
-            setTimeout(() => {
-              router.push('/tabs');
-            }, 100);
+            // Note: setTimeout cleanup not needed here as navigation happens immediately
+            router.push('/tabs');
           },
         },
       ]

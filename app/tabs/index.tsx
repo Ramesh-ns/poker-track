@@ -149,12 +149,21 @@ export default function HomeScreen() {
   };
 
   const renderPreviousSession = (session: Session) => {
+    // Safety check: ensure players array exists
+    if (!session.players || !Array.isArray(session.players)) {
+      return null;
+    }
+    
     const totalPots = session.players.reduce((sum: number, player: Player) => 
-      sum + player.potsTaken, 0);
+      sum + (player.potsTaken || 0), 0);
     const totalReturned = session.players.reduce((sum: number, player: Player) => 
-      sum + player.potsReturned, 0);
-    const netBalance = (totalReturned - totalPots) * session.potValue;
-    const isProfit = totalReturned > totalPots;
+      sum + (player.potsReturned || 0), 0);
+    
+    // Calculate net balance based on pot mode
+    const netBalance = session.potMode === 'direct'
+      ? totalReturned - totalPots  // Direct mode: values are already in dollars
+      : (totalReturned - totalPots) * session.potValue;  // Fixed mode: multiply by pot value
+    const isProfit = netBalance > 0;
     
     return (
       <TouchableOpacity 

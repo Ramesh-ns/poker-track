@@ -7,6 +7,15 @@ import { SessionSummary } from '../../components/SessionSummary';
 import { Session, SessionSummary as SessionSummaryType } from '../../types/poker';
 
 function transformSessionToSummary(session: Session): SessionSummaryType {
+  // Safety check: ensure players array exists
+  if (!session.players || !Array.isArray(session.players)) {
+    return {
+      sessionId: session.id,
+      potValue: session.potValue,
+      playerSummaries: []
+    };
+  }
+  
   const playerSummaries = session.players.map(player => {
     // Calculate values based on pot mode
     const totalPotsTakenValue = session.potMode === 'direct' 
