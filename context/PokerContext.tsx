@@ -219,12 +219,21 @@ export function PokerProvider({ children }: { children: ReactNode }) {
   };
 
   const deletePlayer = useCallback(async (playerId: string) => {
-    if (!session) {
+    // Get current session synchronously to avoid stale closures
+    let currentSession: Session | null = null;
+    setSession(prev => {
+      currentSession = prev;
+      return prev;
+    });
+    
+    if (!currentSession) {
       throw new Error('No active session');
     }
-    const currentSessionId = session.id; // Capture session ID to avoid closure issues
+    
+    const currentSessionId = currentSession.id;
     setIsLoading(true);
     setError(null);
+    
     try {
       await api.deletePlayer(playerId);
       
@@ -233,28 +242,34 @@ export function PokerProvider({ children }: { children: ReactNode }) {
       
       // Fetch updated players list
       const updatedPlayers = await api.fetchPlayers(currentSessionId);
-      const mappedPlayers = updatedPlayers?.map((dbPlayer: any) => mapDbPlayerToPlayer(dbPlayer)) || [];
+      if (!updatedPlayers) {
+        throw new Error('Failed to fetch players');
+      }
+      
+      const mappedPlayers = updatedPlayers.map((dbPlayer: any) => mapDbPlayerToPlayer(dbPlayer));
       
       // Verify the deleted player is not in the list
-      const deletedPlayerStillExists = mappedPlayers.some(p => p.id === playerId);
+      let finalPlayers = mappedPlayers;
+      const deletedPlayerStillExists = mappedPlayers.some(p => p && p.id === playerId);
       if (deletedPlayerStillExists) {
         // Retry fetch after a delay
         await new Promise(resolve => setTimeout(resolve, 200));
         const retryPlayers = await api.fetchPlayers(currentSessionId);
-        const retryMapped = retryPlayers?.map((dbPlayer: any) => mapDbPlayerToPlayer(dbPlayer)) || [];
-        if (retryMapped.length < mappedPlayers.length) {
-          mappedPlayers.length = 0;
-          mappedPlayers.push(...retryMapped);
+        if (retryPlayers) {
+          const retryMapped = retryPlayers.map((dbPlayer: any) => mapDbPlayerToPlayer(dbPlayer));
+          if (retryMapped.length < mappedPlayers.length) {
+            // Create new array instead of mutating
+            finalPlayers = [...retryMapped];
+          }
         }
       }
       
       // Update both players state and session state
       // Create a new array reference to ensure React detects the change
-      const newPlayersArray = [...mappedPlayers];
+      const newPlayersArray = [...finalPlayers];
       setPlayers(newPlayersArray);
       
       // Force update session state - use functional update to ensure we get latest state
-      // Create a completely new object to ensure React detects the change
       setSession(prevSession => {
         if (!prevSession || prevSession.id !== currentSessionId) {
           return prevSession;
@@ -262,7 +277,7 @@ export function PokerProvider({ children }: { children: ReactNode }) {
         // Create a new session object with new players array
         const updatedSession: Session = {
           ...prevSession,
-          players: newPlayersArray // Use the new array reference
+          players: newPlayersArray
         };
         return updatedSession;
       });
@@ -272,7 +287,7 @@ export function PokerProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [session]);
+  }, []);
 
   const updatePotsTaken = async (playerId: string, potsTaken: number) => {
     setIsLoading(true);

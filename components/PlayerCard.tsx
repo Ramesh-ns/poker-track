@@ -66,21 +66,44 @@ export function PlayerCard({
   // Input value for pots taken (temporary, not saved until + button is clicked)
   const [potsTakenInput, setPotsTakenInput] = useState<string>('');
 
-  // Sync pot history when player changes or when potsTaken changes externally
+  // Track if this is the initial load to avoid overwriting history
+  const isInitialMount = React.useRef(true);
+  const lastPlayerId = React.useRef<string | null>(null);
+
+  // Only initialize pot history when player first loads or player ID changes
   useEffect(() => {
-    // Only update if our calculated total doesn't match player.potsTaken
-    const calculatedTotal = potHistory.reduce((sum, val) => sum + val, 0);
-    if (Math.abs(calculatedTotal - player.potsTaken) > 0.01) {
-      // There's a mismatch - update history
-      if (potMode === 'fixed' && player.potsTaken > 0) {
-        setPotHistory(Array(Math.floor(player.potsTaken)).fill(1));
-      } else if (potMode === 'direct' && player.potsTaken > 0 && potHistory.length === 0) {
-        // For direct mode, if we have no history but player has potsTaken,
-        // we can't reconstruct perfectly, so keep empty history
-        // The display will show the current total from player.potsTaken
-      }
+    if (!player || !player.id) {
+      return;
     }
-  }, [player.potsTaken, player.id, potMode]);
+
+    // If this is a new player (different ID), initialize history
+    if (lastPlayerId.current !== player.id) {
+      lastPlayerId.current = player.id;
+      isInitialMount.current = true;
+      
+      // Initialize history only if player has potsTaken and we have no history
+      if (player.potsTaken > 0 && potHistory.length === 0) {
+        if (potMode === 'fixed') {
+          // For fixed mode, we can't know the actual values, so start fresh
+          // The user will add pots from now on
+          setPotHistory([]);
+        } else {
+          // For direct mode, also start fresh
+          setPotHistory([]);
+        }
+      } else if (player.potsTaken === 0) {
+        // Reset history if player has no pots
+        setPotHistory([]);
+      }
+      
+      isInitialMount.current = false;
+      return;
+    }
+
+    // After initial mount, don't sync history when potsTaken changes
+    // because we're managing it locally and updating the database ourselves
+    isInitialMount.current = false;
+  }, [player?.id]); // Only depend on player ID, not potsTaken
 
   useEffect(() => {
     setPotsReturnedInput(
@@ -142,18 +165,36 @@ export function PlayerCard({
     // Get the value from the input field
     const inputValue = parseFloat(potsTakenInput) || 0;
     
-    if (inputValue <= 0) {
-      // Don't add if input is empty or invalid
+    if (inputValue <= 0 || !isFinite(inputValue)) {
+      // Don't add if input is empty, invalid, or not finite
       return;
     }
     
-    // Add the input value to history
-    const newHistory = [...potHistory, inputValue];
+    // Safety check: prevent extremely large values
+    if (inputValue > 1000000) {
+      return;
+    }
+    
+    // Add the input value to history - create new array to avoid mutations
+    const currentHistory = Array.isArray(potHistory) ? potHistory : [];
+    const newHistory = [...currentHistory, inputValue];
+    
+    // Safety check: prevent history from growing too large
+    if (newHistory.length > 1000) {
+      return;
+    }
+    
     setPotHistory(newHistory);
     
     // Calculate total from history
-    const total = newHistory.reduce((sum, val) => sum + val, 0);
-    onUpdatePotsTaken(player.id, total);
+    const total = newHistory.reduce((sum, val) => {
+      const num = typeof val === 'number' && isFinite(val) ? val : 0;
+      return sum + num;
+    }, 0);
+    
+    if (player && player.id && typeof total === 'number' && isFinite(total)) {
+      onUpdatePotsTaken(player.id, total);
+    }
     
     // Clear the input for next entry
     setPotsTakenInput('');
@@ -166,22 +207,29 @@ export function PlayerCard({
     setPotsTakenInput(cleanedText);
   };
 
-  // Calculate total from pot history
-  const calculatedPotsTaken = potHistory.reduce((sum, val) => sum + val, 0);
+  // Calculate total from pot history with safety checks
+  const calculatedPotsTaken = Array.isArray(potHistory) 
+    ? potHistory.reduce((sum, val) => {
+        const num = typeof val === 'number' && isFinite(val) ? val : 0;
+        return sum + num;
+      }, 0)
+    : 0;
   
-  // Display the calculated total (from history), not the input value
-  const displayPotsTaken = calculatedPotsTaken;
+  // For read-only mode (review), use player.potsTaken directly since we don't have history
+  // For active sessions, use calculatedPotsTaken from history if available, otherwise fall back to player.potsTaken
+  const displayPotsTaken = isReadOnly 
+    ? (typeof player.potsTaken === 'number' && isFinite(player.potsTaken) ? player.potsTaken : 0)
+    : (calculatedPotsTaken > 0 || potHistory.length > 0
+        ? (typeof calculatedPotsTaken === 'number' && isFinite(calculatedPotsTaken) ? calculatedPotsTaken : 0)
+        : (typeof player.potsTaken === 'number' && isFinite(player.potsTaken) ? player.potsTaken : 0));
   
   // Generate calculation string
   const getCalculationString = (): string => {
-    if (potHistory.length === 0) {
-      return 'Total: 0';
-    }
+    const safeHistory = Array.isArray(potHistory) ? potHistory : [];
     
-    const total = potHistory.reduce((sum, val) => sum + val, 0);
-    
-    // If only one entry, just show the value without calculation
-    if (potHistory.length === 1) {
+    // For read-only mode (review), show total from player.potsTaken since we don't have history
+    if (isReadOnly && safeHistory.length === 0) {
+      const total = typeof player.potsTaken === 'number' && isFinite(player.potsTaken) ? player.potsTaken : 0;
       if (potMode === 'fixed') {
         return `Total: ${total}`;
       } else {
@@ -189,22 +237,51 @@ export function PlayerCard({
       }
     }
     
+    // If no history and not read-only, show 0
+    if (safeHistory.length === 0) {
+      return 'Total: 0';
+    }
+    
+    const total = safeHistory.reduce((sum, val) => {
+      const num = typeof val === 'number' && isFinite(val) ? val : 0;
+      return sum + num;
+    }, 0);
+    
+    const safeTotal = typeof total === 'number' && isFinite(total) ? total : 0;
+    
+    // If only one entry, just show the value without calculation
+    if (safeHistory.length === 1) {
+      if (potMode === 'fixed') {
+        return `Total: ${safeTotal}`;
+      } else {
+        return `Total: $${safeTotal.toFixed(2)}`;
+      }
+    }
+    
     // If multiple entries, show calculation with equals
     // Format: Total: $25+$25 = $50
     if (potMode === 'fixed') {
       // Show as: Total: 1+2+1 = 4 (pot count, not dollar amount)
-      const calculation = potHistory.join('+');
-      return `Total: ${calculation} = ${total}`;
+      const calculation = safeHistory
+        .filter(val => typeof val === 'number' && isFinite(val))
+        .join('+');
+      return `Total: ${calculation} = ${safeTotal}`;
     } else {
       // Show as: Total: $25.00+$25.00 = $50.00
-      const calculation = potHistory.map(val => `$${val.toFixed(2)}`).join('+');
-      return `Total: ${calculation} = $${total.toFixed(2)}`;
+      const calculation = safeHistory
+        .filter(val => typeof val === 'number' && isFinite(val))
+        .map(val => `$${val.toFixed(2)}`)
+        .join('+');
+      return `Total: ${calculation} = $${safeTotal.toFixed(2)}`;
     }
   };
 
   const handleDeletePlayer = () => {
     // Only allow deletion if no pots/amount have been taken
-    if (calculatedPotsTaken > 0) {
+    const potsTakenForDeleteCheck = isReadOnly 
+      ? (typeof player.potsTaken === 'number' && isFinite(player.potsTaken) ? player.potsTaken : 0)
+      : calculatedPotsTaken;
+    if (potsTakenForDeleteCheck > 0) {
       return;
     }
 
@@ -233,13 +310,21 @@ export function PlayerCard({
   };
 
   // Check if player can be deleted (only if no pots/amount taken)
-  const canDeletePlayer = calculatedPotsTaken === 0;
+  // For read-only mode, check player.potsTaken; otherwise check calculatedPotsTaken
+  const potsTakenForDeleteCheck = isReadOnly 
+    ? (typeof player.potsTaken === 'number' && isFinite(player.potsTaken) ? player.potsTaken : 0)
+    : calculatedPotsTaken;
+  const canDeletePlayer = potsTakenForDeleteCheck === 0;
 
   // Calculate values based on pot mode
-  // Use calculatedPotsTaken from history
+  // For read-only mode, use player.potsTaken directly; otherwise use calculatedPotsTaken from history
+  const potsTakenForCalculation = isReadOnly 
+    ? (typeof player.potsTaken === 'number' && isFinite(player.potsTaken) ? player.potsTaken : 0)
+    : (calculatedPotsTaken > 0 || potHistory.length > 0 ? calculatedPotsTaken : (typeof player.potsTaken === 'number' && isFinite(player.potsTaken) ? player.potsTaken : 0));
+  
   const totalPotsTakenValue = potMode === 'direct' 
-    ? calculatedPotsTaken 
-    : calculatedPotsTaken * potValue;
+    ? potsTakenForCalculation 
+    : potsTakenForCalculation * potValue;
   const totalPotsReturnedValue = potMode === 'direct'
     ? (player.potsReturned ?? 0)
     : (player.potsReturned ?? 0) * potValue;
