@@ -27,7 +27,7 @@ module.exports = {
     icon: './assets/images/icon.png',
     scheme: 'pokertrack',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: true,
+    newArchEnabled: false,
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.pokertrack.app',
