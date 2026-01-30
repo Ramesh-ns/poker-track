@@ -14,16 +14,20 @@ export default function VerifyOTPResetScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [phone, setPhone] = useState<string>('');
-  const { verifyPhoneOTPForPasswordReset } = useAuth();
+  const [email, setEmail] = useState<string>('');
+  const { verifyPhoneOTPForPasswordReset, verifyEmailOTPForPasswordReset } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const params = useLocalSearchParams();
 
   useEffect(() => {
-    // Get phone from params
+    // Get phone or email from params
     if (params.phone && typeof params.phone === 'string') {
       setPhone(params.phone);
+    }
+    if (params.email && typeof params.email === 'string') {
+      setEmail(params.email);
     }
   }, [params]);
 
@@ -38,8 +42,8 @@ export default function VerifyOTPResetScreen() {
       return;
     }
 
-    if (!phone) {
-      setError('Phone number is missing. Please go back and try again.');
+    if (!phone && !email) {
+      setError('Identifier is missing. Please go back and try again.');
       return;
     }
 
@@ -48,12 +52,16 @@ export default function VerifyOTPResetScreen() {
 
     try {
       // Verify OTP - this will create a session if valid
-      await verifyPhoneOTPForPasswordReset(phone, otp.trim());
-      
+      if (phone) {
+        await verifyPhoneOTPForPasswordReset(phone, otp.trim());
+      } else if (email) {
+        await verifyEmailOTPForPasswordReset(email, otp.trim());
+      }
+
       // After successful verification, navigate to reset password screen
       router.replace({
         pathname: '/reset-password',
-        params: { fromPhone: 'true' },
+        params: { fromOTP: 'true' },
       });
     } catch (err: any) {
       console.error('OTP verification error:', err);
@@ -65,8 +73,8 @@ export default function VerifyOTPResetScreen() {
   };
 
   const handleResendOTP = async () => {
-    if (!phone) {
-      setError('Phone number is missing. Please go back and try again.');
+    if (!phone && !email) {
+      setError('Identifier is missing. Please go back and try again.');
       return;
     }
 
@@ -74,9 +82,14 @@ export default function VerifyOTPResetScreen() {
     setError('');
 
     try {
-      await authApi.resendPhoneOTP(phone);
+      if (phone) {
+        await authApi.resendPhoneOTP(phone);
+      } else if (email) {
+        // For email, we just call resetPassword again
+        await authApi.resetPasswordForEmail(email);
+      }
       setError('');
-      // Show success message (you could add a success state here)
+      // Show success message
     } catch (err: any) {
       console.error('Resend OTP error:', err);
       const errorMessage = err.message || 'Failed to resend code. Please try again.';
@@ -106,7 +119,11 @@ export default function VerifyOTPResetScreen() {
           <View style={styles.content}>
             <Text style={[styles.title, { color: textColor }]}>Verify Code</Text>
             <Text style={[styles.subtitle, { color: textColor }]}>
-              Enter the 6-digit code sent to {phone ? phone.replace(/(\+\d{1,3})(\d{3})(\d{3})(\d+)/, '$1 ($2) $3-$4') : 'your phone'}
+              Enter the 6-digit code sent to {
+                phone
+                  ? phone.replace(/(\+\d{1,3})(\d{3})(\d{3})(\d+)/, '$1 ($2) $3-$4')
+                  : email || 'your email'
+              }
             </Text>
 
             <View style={styles.form}>

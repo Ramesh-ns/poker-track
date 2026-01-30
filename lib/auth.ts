@@ -25,11 +25,11 @@ export async function checkEmailExists(email: string): Promise<boolean> {
     .select('email')
     .eq('email', email.trim())
     .single();
-  
+
   if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
     throw error;
   }
-  
+
   return !!data;
 }
 
@@ -37,49 +37,49 @@ export async function checkEmailExists(email: string): Promise<boolean> {
 export async function checkPhoneExists(phone: string): Promise<boolean> {
   // Remove formatting for comparison - ensure it starts with +
   let cleanedPhone = phone.replace(/[^\d+]/g, '');
-  
+
   // Ensure phone starts with +
   if (!cleanedPhone.startsWith('+')) {
     cleanedPhone = '+' + cleanedPhone;
   }
-  
+
   console.log('🔍 Checking if phone exists:', cleanedPhone);
-  
+
   // Check in profiles table - try exact match first
   const { data: exactMatch, error: exactError } = await supabase
     .from('profiles')
     .select('phone')
     .eq('phone', cleanedPhone)
     .maybeSingle();
-  
+
   if (exactMatch) {
     console.log('✅ Phone found in profiles (exact match)');
     return true;
   }
-  
+
   // If not found, try to find any phone that matches when cleaned
   // This handles cases where phone might be stored with different formatting
   const { data: allProfiles, error: allError } = await supabase
     .from('profiles')
     .select('phone')
     .not('phone', 'is', null);
-  
+
   if (!allError && allProfiles) {
     const matchingPhone = allProfiles.find(profile => {
       if (!profile.phone) return false;
       const profilePhoneCleaned = profile.phone.replace(/[^\d+]/g, '');
-      const profilePhoneNormalized = profilePhoneCleaned.startsWith('+') 
-        ? profilePhoneCleaned 
+      const profilePhoneNormalized = profilePhoneCleaned.startsWith('+')
+        ? profilePhoneCleaned
         : '+' + profilePhoneCleaned;
       return profilePhoneNormalized === cleanedPhone;
     });
-    
+
     if (matchingPhone) {
       console.log('✅ Phone found in profiles (normalized match):', matchingPhone.phone);
       return true;
     }
   }
-  
+
   console.log('❌ Phone not found in profiles');
   return false;
 }
@@ -91,11 +91,11 @@ export async function checkUsernameExists(username: string): Promise<boolean> {
     .select('username')
     .eq('username', username.trim())
     .single();
-  
+
   if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
     throw error;
   }
-  
+
   return !!data;
 }
 
@@ -112,12 +112,12 @@ function getFriendlyErrorMessage(error: any, username?: string, emailOrPhone?: s
 
   // Check for Twilio/SMS provider errors
   // Error code 'sms_send_failed' indicates Twilio/SMS provider issue
-  if (errorCode === 'sms_send_failed' || 
-      errorMessage.includes('Twilio') || 
-      errorMessage.includes('twilio') || 
-      errorMessage.includes('60200') ||
-      errorMessage.includes('Error sending confirmation OTP to provider')) {
-    
+  if (errorCode === 'sms_send_failed' ||
+    errorMessage.includes('Twilio') ||
+    errorMessage.includes('twilio') ||
+    errorMessage.includes('60200') ||
+    errorMessage.includes('Error sending confirmation OTP to provider')) {
+
     if (errorMessage.includes('Invalid parameter') || errorMessage.includes('60200')) {
       return 'Twilio configuration error: Invalid parameter. Please verify: 1) Twilio Message Service SID is correctly entered in Supabase Dashboard (Authentication → Settings → Phone → Message Service SID), 2) For Twilio trial accounts, verify your phone number in Twilio Console (Phone Numbers → Verified Caller IDs), 3) Ensure your Twilio credentials (Account SID, Auth Token, Message Service SID) are correct.';
     }
@@ -131,9 +131,9 @@ function getFriendlyErrorMessage(error: any, username?: string, emailOrPhone?: s
   }
 
   // Check for phone signups disabled
-  if (errorMessage.includes('Phone signups are disabled') || 
-      errorMessage.includes('phone signups disabled') ||
-      errorCode === 'phone_signups_disabled') {
+  if (errorMessage.includes('Phone signups are disabled') ||
+    errorMessage.includes('phone signups disabled') ||
+    errorCode === 'phone_signups_disabled') {
     if (isPhoneNumber) {
       return 'Phone number registration is currently disabled. Please use email to register.';
     }
@@ -218,7 +218,7 @@ export async function signUp(
     username,
     isPhoneNumber,
   });
-  
+
   if (!username || !username.trim()) {
     throw new Error('Username is required');
   }
@@ -245,19 +245,19 @@ export async function signUp(
   if (isPhoneNumber || isPhone(emailOrPhone)) {
     // Sign up with phone - ensure proper format
     let cleanedPhone = emailOrPhone.replace(/[^\d+]/g, '');
-    
+
     // Ensure phone starts with +
     if (!cleanedPhone.startsWith('+')) {
       cleanedPhone = '+' + cleanedPhone;
     }
-    
+
     // Validate phone number format before sending to Supabase/Twilio
     // E.164 format: +[country code][number] (10-15 digits total after +)
     const phoneDigits = cleanedPhone.replace(/[^\d]/g, '');
     if (phoneDigits.length < 10 || phoneDigits.length > 15) {
       throw new Error('Invalid phone number format. Phone number must be between 10-15 digits (including country code). Example: +19876543210 or +919876543210');
     }
-    
+
     // Log with explicit console.log to ensure visibility
     console.log('========================================');
     console.log('📱 ATTEMPTING PHONE SIGNUP');
@@ -266,7 +266,7 @@ export async function signUp(
     console.log('Phone digits count:', phoneDigits.length);
     console.log('Username:', username.trim());
     console.log('========================================');
-    
+
     const { data, error } = await supabase.auth.signUp({
       phone: cleanedPhone,
       password,
@@ -277,7 +277,7 @@ export async function signUp(
         emailRedirectTo: undefined, // Disable email confirmation
       },
     });
-    
+
     if (error) {
       console.log('========================================');
       console.log('❌ SUPABASE SIGNUP ERROR');
@@ -286,20 +286,20 @@ export async function signUp(
       console.log('Error message:', error.message);
       console.log('Full error:', JSON.stringify(error, null, 2));
       console.log('========================================');
-      
+
       // Check specifically for phone signups disabled
       const errorMsg = error.message || '';
       const errorCode = error.code || '';
-      
-      if (errorMsg.includes('Phone signups are disabled') || 
-          errorMsg.includes('phone signups disabled') ||
-          errorMsg.includes('signups are disabled') ||
-          errorCode === 'phone_signups_disabled' ||
-          errorCode === 'signup_disabled') {
+
+      if (errorMsg.includes('Phone signups are disabled') ||
+        errorMsg.includes('phone signups disabled') ||
+        errorMsg.includes('signups are disabled') ||
+        errorCode === 'phone_signups_disabled' ||
+        errorCode === 'signup_disabled') {
         console.log('🚫 Phone signups are disabled in Supabase');
         throw new Error('Phone signups are disabled. Please enable phone signups in Supabase Dashboard (Authentication → Settings → Phone) or use email to register.');
       }
-      
+
       // Check for SMS/Twilio errors specifically
       if (errorCode === 'sms_send_failed' || errorMsg.includes('Error sending confirmation OTP')) {
         console.log('📱 SMS sending failed - likely Twilio configuration issue');
@@ -308,17 +308,17 @@ export async function signUp(
         console.log('   2. For trial accounts, verify phone number in Twilio Console');
         console.log('   3. Check Twilio Account SID and Auth Token are correct');
       }
-      
+
       // Convert auth errors to user-friendly messages
       const friendlyMessage = getFriendlyErrorMessage(error, username, cleanedPhone, true);
       throw new Error(friendlyMessage);
     }
-    
+
     console.log('✅ Phone signup successful, user created:', data.user?.id);
     console.log('Session exists:', !!data.session);
     console.log('User needs verification:', !data.session);
     console.log('Full signup response:', JSON.stringify(data, null, 2));
-    
+
     // If OTP verification is enabled and no session, user needs to verify OTP
     if (ENABLE_PHONE_OTP_VERIFICATION && !data.session && data.user) {
       console.log('📱 User needs phone verification - OTP should be sent to phone');
@@ -328,17 +328,17 @@ export async function signUp(
       console.log('   3. For Twilio trial accounts, verify phone number in Twilio Console → Phone Numbers → Verified Caller IDs');
       console.log('   4. Check Twilio Console → Monitor → Logs for SMS delivery status');
       console.log('   5. Verify phone number format is correct:', cleanedPhone);
-      
+
       // Check if we can get more info about the SMS send
       if (data.user.confirmation_sent_at) {
         console.log('✅ Confirmation sent at:', data.user.confirmation_sent_at);
         console.log('💡 This means Supabase attempted to send SMS. Check Supabase/Twilio logs for delivery status.');
       }
-      
+
       // Return data with a flag indicating verification is needed
       return { ...data, needsVerification: true, phone: cleanedPhone };
     }
-    
+
     // If OTP verification is disabled and no session, try to auto-sign in
     if (!ENABLE_PHONE_OTP_VERIFICATION && !data.session && data.user) {
       console.log('📱 OTP verification disabled - attempting auto-sign in');
@@ -359,7 +359,7 @@ export async function signUp(
         console.log('⚠️ Could not auto-sign in after phone signup:', e);
       }
     }
-    
+
     // Create profile immediately using RPC function (bypasses RLS)
     if (data.user) {
       console.log('Creating profile for user:', data.user.id);
@@ -369,19 +369,19 @@ export async function signUp(
         p_phone: cleanedPhone,
         p_email: null,
       });
-      
+
       if (profileError) {
         console.error('❌ Failed to create profile:', profileError);
         // Convert profile errors to user-friendly messages
         const friendlyMessage = getFriendlyErrorMessage(profileError, username, cleanedPhone, true);
         throw new Error(friendlyMessage);
       }
-      
+
       console.log('✅ Profile created successfully');
     } else {
       throw new Error('User was not created. Please try again.');
     }
-    
+
     return data;
   } else {
     // Sign up with email - disable email confirmation
@@ -397,7 +397,7 @@ export async function signUp(
         // Auto-confirm email (requires Supabase settings to allow this)
       },
     });
-    
+
     // If user was created but email needs confirmation, auto-confirm it
     if (data.user && !data.session) {
       // Try to sign in immediately to auto-confirm
@@ -416,14 +416,14 @@ export async function signUp(
         console.log('Could not auto-confirm email, user will need to confirm manually');
       }
     }
-    
+
     if (error) {
       console.error('❌ Supabase signup error:', error);
       // Convert auth errors to user-friendly messages
       const friendlyMessage = getFriendlyErrorMessage(error, username, emailOrPhone, false);
       throw new Error(friendlyMessage);
     }
-    
+
     // Create profile immediately using RPC function (bypasses RLS)
     if (data.user) {
       console.log('Creating profile for user:', data.user.id);
@@ -433,19 +433,19 @@ export async function signUp(
         p_email: emailOrPhone,
         p_phone: null,
       });
-      
+
       if (profileError) {
         console.error('❌ Failed to create profile:', profileError);
         // Convert profile errors to user-friendly messages
         const friendlyMessage = getFriendlyErrorMessage(profileError, username, emailOrPhone, false);
         throw new Error(friendlyMessage);
       }
-      
+
       console.log('✅ Profile created successfully');
     } else {
       throw new Error('User was not created. Please try again.');
     }
-    
+
     return data;
   }
 }
@@ -456,9 +456,9 @@ function getFriendlyLoginErrorMessage(error: any): string {
   const errorCode = error?.code || '';
 
   // Phone not confirmed
-  if (errorMessage.includes('Phone not confirmed') || 
-      errorMessage.includes('phone not confirmed') ||
-      errorCode === 'phone_not_confirmed') {
+  if (errorMessage.includes('Phone not confirmed') ||
+    errorMessage.includes('phone not confirmed') ||
+    errorCode === 'phone_not_confirmed') {
     return 'Please verify your phone number before signing in. Check your SMS for a verification code.';
   }
 
@@ -468,10 +468,10 @@ function getFriendlyLoginErrorMessage(error: any): string {
   }
 
   // Invalid credentials
-  if (errorMessage.includes('Invalid login credentials') || 
-      errorMessage.includes('Invalid credentials') ||
-      errorCode === 'invalid_credentials' ||
-      errorCode === 'invalid_grant') {
+  if (errorMessage.includes('Invalid login credentials') ||
+    errorMessage.includes('Invalid credentials') ||
+    errorCode === 'invalid_credentials' ||
+    errorCode === 'invalid_grant') {
     return 'Invalid credentials. Please check your username, email, or phone number and password.';
   }
 
@@ -493,7 +493,7 @@ function getFriendlyLoginErrorMessage(error: any): string {
 export async function signIn(identifier: string, password: string) {
   // Clean identifier (remove formatting from phone)
   let cleanedIdentifier = identifier.trim();
-  
+
   // First, check if it's an email (contains @)
   if (identifier.includes('@')) {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -506,7 +506,7 @@ export async function signIn(identifier: string, password: string) {
     }
     return data;
   }
-  
+
   // Check if it's a phone number (starts with + or is all digits)
   if (cleanedIdentifier.startsWith('+') || /^\d/.test(cleanedIdentifier)) {
     // Remove formatting for phone login
@@ -521,26 +521,26 @@ export async function signIn(identifier: string, password: string) {
     }
     return data;
   }
-  
+
   // If it's not email or phone, try to find user by username using database function
   try {
     const { data: profileData, error: profileError } = await supabase.rpc(
       'get_user_identifier_by_username',
       { username_param: identifier }
     );
-    
+
     if (profileError) {
       console.error('Profile lookup error:', profileError);
       throw new Error('Invalid credentials. Please check your username, email, or phone number and password.');
     }
-    
+
     if (!profileData || profileData.length === 0) {
       throw new Error('Username not found. Please check your username and try again.');
     }
-    
+
     const profile = profileData[0];
     let lastError: any = null;
-    
+
     // Try to sign in with email first, then phone
     if (profile.email) {
       try {
@@ -555,7 +555,7 @@ export async function signIn(identifier: string, password: string) {
         // Continue to try phone
       }
     }
-    
+
     if (profile.phone) {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -568,7 +568,7 @@ export async function signIn(identifier: string, password: string) {
         lastError = e;
       }
     }
-    
+
     // If both attempts failed, throw the last error
     if (lastError) {
       const friendlyMessage = getFriendlyLoginErrorMessage(lastError);
@@ -582,14 +582,14 @@ export async function signIn(identifier: string, password: string) {
     // Otherwise, throw generic error
     throw new Error('Invalid credentials. Please check your username, email, or phone number and password.');
   }
-  
+
   throw new Error('Invalid credentials. Please check your username, email, or phone number and password.');
 }
 
 // Sign out
 export async function signOut() {
   console.log('Signing out from Supabase...');
-  
+
   // Clear any local storage first (for web)
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
@@ -605,7 +605,7 @@ export async function signOut() {
       console.error('Error clearing localStorage:', e);
     }
   }
-  
+
   // Sign out from Supabase
   const { error } = await supabase.auth.signOut();
   if (error) {
@@ -614,7 +614,7 @@ export async function signOut() {
   } else {
     console.log('Supabase signout successful');
   }
-  
+
   // Force clear session one more time
   await supabase.auth.signOut();
 }
@@ -626,20 +626,20 @@ export async function verifyPhoneOTP(phone: string, token: string) {
   if (!cleanedPhone.startsWith('+')) {
     cleanedPhone = '+' + cleanedPhone;
   }
-  
+
   console.log('========================================');
   console.log('🔐 VERIFYING OTP');
   console.log('========================================');
   console.log('Phone:', cleanedPhone);
   console.log('OTP token:', token.trim());
   console.log('========================================');
-  
+
   const { data, error } = await supabase.auth.verifyOtp({
     phone: cleanedPhone,
     token: token.trim(),
     type: 'sms',
   });
-  
+
   if (error) {
     console.log('========================================');
     console.log('❌ OTP VERIFICATION ERROR');
@@ -648,18 +648,18 @@ export async function verifyPhoneOTP(phone: string, token: string) {
     console.log('Error message:', error.message);
     console.log('Full error:', JSON.stringify(error, null, 2));
     console.log('========================================');
-    
+
     // Provide helpful error messages
     if (error.message?.includes('expired') || error.message?.includes('invalid')) {
       throw new Error('Invalid or expired verification code. Please request a new code.');
     }
-    
+
     throw error;
   }
-  
+
   console.log('✅ OTP verified successfully');
   console.log('Session created:', !!data.session);
-  
+
   // After successful verification, create profile if it doesn't exist
   if (data.user) {
     // Check if profile exists
@@ -668,7 +668,7 @@ export async function verifyPhoneOTP(phone: string, token: string) {
       .select('id')
       .eq('id', data.user.id)
       .single();
-    
+
     if (profileError && profileError.code === 'PGRST116') {
       // Profile doesn't exist, create it
       const username = data.user.user_metadata?.username || `user_${data.user.id.substring(0, 8)}`;
@@ -679,7 +679,7 @@ export async function verifyPhoneOTP(phone: string, token: string) {
         p_phone: cleanedPhone,
         p_email: null,
       });
-      
+
       if (createError) {
         console.error('❌ Failed to create profile after verification:', createError);
       } else {
@@ -687,7 +687,7 @@ export async function verifyPhoneOTP(phone: string, token: string) {
       }
     }
   }
-  
+
   return data;
 }
 
@@ -698,19 +698,19 @@ export async function resendPhoneOTP(phone: string) {
   if (!cleanedPhone.startsWith('+')) {
     cleanedPhone = '+' + cleanedPhone;
   }
-  
+
   console.log('📤 Resending OTP to phone:', cleanedPhone);
-  
+
   const { data, error } = await supabase.auth.resend({
     type: 'sms',
     phone: cleanedPhone,
   });
-  
+
   if (error) {
     console.error('❌ Resend OTP error:', error);
     throw error;
   }
-  
+
   console.log('✅ OTP resent successfully');
   return data;
 }
@@ -722,74 +722,53 @@ export async function getCurrentUser() {
   return user;
 }
 
-// Reset password for email
+// Reset password for email (triggers recovery email)
 export async function resetPasswordForEmail(email: string) {
   console.log('📧 Requesting password reset for email:', email);
-  
+
   // Validate email format
   if (!isEmail(email)) {
     throw new Error('Please enter a valid email address.');
   }
-  
-  // For mobile apps, we need to use a web URL that Supabase can send in emails
-  // The web URL should redirect to the app using the custom scheme
-  // Format: https://yourdomain.com/reset-password or use custom scheme if Supabase allows it
-  // 
-  // Option 1: Use web URL (recommended for production)
-  // Set EXPO_PUBLIC_RESET_PASSWORD_URL=https://yourdomain.com/reset-password
-  // 
-  // Option 2: Use custom scheme (works if Supabase allows it)
-  // Set EXPO_PUBLIC_RESET_PASSWORD_URL=pokertrack://reset-password
-  //
-  // For now, we'll try custom scheme first, fallback to web URL pattern
-  const redirectUrl = 
-    process.env.EXPO_PUBLIC_RESET_PASSWORD_URL || 
-    process.env.EXPO_PUBLIC_APP_URL || 
-    'pokertrack://reset-password';
-  
-  console.log('🔗 Using redirect URL:', redirectUrl);
-  
+
+  // For OTP-based flow, redirectTo might still be useful if they DO click the link,
+  // but if they are entering a code manually, we just need to trigger the email.
+  const redirectUrl =
+    process.env.EXPO_PUBLIC_RESET_PASSWORD_URL ||
+    process.env.EXPO_PUBLIC_APP_URL;
+
+  console.log('🔗 Triggering recovery flow for:', email);
+
   const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: redirectUrl,
+    redirectTo: redirectUrl || undefined,
   });
-  
+
   if (error) {
     console.error('❌ Password reset error:', error);
-    
-    // Provide user-friendly error messages
-    if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
-      throw new Error('Too many password reset requests. Please try again later.');
-    }
-    
-    if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
-      // Don't reveal if email exists for security, but still show success message
-      // Supabase will send email even if user doesn't exist (to prevent email enumeration)
-      console.log('Email not found, but reset email sent anyway (security measure)');
-    }
-    
-    throw new Error(error.message || 'Failed to send password reset email. Please try again.');
+    const friendlyMessage = getFriendlyErrorMessage(error, undefined, email, false);
+    throw new Error(friendlyMessage);
   }
-  
-  console.log('✅ Password reset email sent successfully');
+
+  console.log('✅ Password reset email triggered successfully');
   return data;
 }
 
 // Reset password for phone (sends OTP)
 export async function resetPasswordForPhone(phone: string) {
   console.log('📱 Requesting password reset for phone:', phone);
-  
+
   // Clean phone number
   let cleanedPhone = phone.replace(/[^\d+]/g, '');
   if (!cleanedPhone.startsWith('+')) {
     cleanedPhone = '+' + cleanedPhone;
   }
-  
+
   // Validate phone format
   const phoneDigits = cleanedPhone.replace(/[^\d]/g, '');
   if (phoneDigits.length < 10 || phoneDigits.length > 15) {
     throw new Error('Invalid phone number format. Phone number must be between 10-15 digits (including country code).');
   }
-  
+
   // Send OTP for password recovery
   const { data, error } = await supabase.auth.signInWithOtp({
     phone: cleanedPhone,
@@ -798,95 +777,91 @@ export async function resetPasswordForPhone(phone: string) {
       channel: 'sms',
     },
   });
-  
+
   if (error) {
     console.error('❌ Phone password reset error:', error);
-    
+
     // Provide user-friendly error messages
-    if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
-      throw new Error('Too many password reset requests. Please try again later.');
-    }
-    
-    if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
-      // Don't reveal if phone exists for security
-      console.log('Phone not found, but OTP sent anyway (security measure)');
-    }
-    
-    // Check for SMS/Twilio errors
-    if (error.code === 'sms_send_failed' || error.message?.includes('SMS') || error.message?.includes('Twilio')) {
-      throw new Error('Failed to send SMS. Please check your phone number and try again.');
-    }
-    
-    throw new Error(error.message || 'Failed to send password reset code. Please try again.');
+    const friendlyMessage = getFriendlyErrorMessage(error, undefined, cleanedPhone, true);
+    throw new Error(friendlyMessage);
   }
-  
+
   console.log('✅ Password reset OTP sent successfully');
   return { ...data, phone: cleanedPhone };
 }
 
 // Verify phone OTP for password reset
 export async function verifyPhoneOTPForPasswordReset(phone: string, token: string) {
-  console.log('🔐 Verifying OTP for password reset...');
-  
+  console.log('🔐 Verifying phone OTP for password reset...');
+
   // Clean phone number
   let cleanedPhone = phone.replace(/[^\d+]/g, '');
   if (!cleanedPhone.startsWith('+')) {
     cleanedPhone = '+' + cleanedPhone;
   }
-  
-  console.log('Phone:', cleanedPhone);
-  console.log('OTP token:', token.trim());
-  
-  // Verify OTP - this will create a session if valid
+
   const { data, error } = await supabase.auth.verifyOtp({
     phone: cleanedPhone,
     token: token.trim(),
     type: 'sms',
   });
-  
+
   if (error) {
-    console.error('❌ OTP verification error:', error);
-    
-    if (error.message?.includes('expired') || error.message?.includes('invalid')) {
-      throw new Error('Invalid or expired verification code. Please request a new code.');
-    }
-    
-    throw new Error(error.message || 'Failed to verify code. Please try again.');
+    console.error('❌ Phone OTP verification error:', error);
+    const friendlyMessage = getFriendlyErrorMessage(error, undefined, cleanedPhone, true);
+    throw new Error(friendlyMessage);
   }
-  
-  console.log('✅ OTP verified successfully for password reset');
-  console.log('Session created:', !!data.session);
-  
-  // Return data with session - user can now update password
+
+  console.log('✅ Phone OTP verified successfully');
+  return data;
+}
+
+// Verify email OTP for password reset
+export async function verifyEmailOTPForPasswordReset(email: string, token: string) {
+  console.log('🔐 Verifying email OTP for password reset...');
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: email.trim(),
+    token: token.trim(),
+    type: 'recovery',
+  });
+
+  if (error) {
+    console.error('❌ Email OTP verification error:', error);
+    const friendlyMessage = getFriendlyErrorMessage(error, undefined, email, false);
+    throw new Error(friendlyMessage);
+  }
+
+  console.log('✅ Email OTP verified successfully');
   return data;
 }
 
 // Update password (used after clicking reset link or verifying OTP)
 export async function updatePassword(newPassword: string) {
   console.log('🔐 Updating password...');
-  
+
   if (!newPassword || newPassword.length < 6) {
     throw new Error('Password must be at least 6 characters long.');
   }
-  
+
   const { data, error } = await supabase.auth.updateUser({
     password: newPassword,
   });
-  
+
   if (error) {
     console.error('❌ Password update error:', error);
-    
+
     if (error.message?.includes('expired') || error.message?.includes('invalid')) {
       throw new Error('Password reset link has expired. Please request a new one.');
     }
-    
+
     if (error.message?.includes('session') || error.message?.includes('not authenticated')) {
       throw new Error('Your session has expired. Please request a new password reset.');
     }
-    
+
     throw new Error(error.message || 'Failed to update password. Please try again.');
   }
-  
+
   console.log('✅ Password updated successfully');
   return data;
 }

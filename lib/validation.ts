@@ -14,7 +14,7 @@ export function isValidPhone(phone: string): boolean {
   // Total digits after + should be 10-15
   // Country code is 1-3 digits, so number part is 7-14 digits
   if (digits.length < 10 || digits.length > 15) return false;
-  
+
   // Additional validation: country code should be 1-3 digits
   // This is a basic check - more sophisticated validation would check against known country codes
   return true;
@@ -29,46 +29,50 @@ export function isValidUsername(username: string): boolean {
 export function formatPhoneNumber(phone: string): string {
   // Remove all non-digit characters except +
   let cleaned = phone.replace(/[^\d+]/g, '');
-  
-  // If user is typing and hasn't added + yet, don't force it
-  // Only format if it already has + or is clearly a phone number
-  if (!cleaned.startsWith('+') && cleaned.length > 0) {
-    // If it's all digits and long enough, assume it needs country code
-    if (cleaned.length >= 10) {
-      cleaned = '+' + cleaned;
-    } else {
-      // Return as is if too short
-      return phone;
+
+  // Only auto-format if it starts with +
+  // Usernames often start with digits, so we shouldn't format those
+  if (!cleaned.startsWith('+')) {
+    return phone;
+  }
+
+  // Special case for +1 (US/Canada)
+  if (cleaned.startsWith('+1')) {
+    const number = cleaned.slice(2);
+    if (number.length === 10) {
+      return `+1 ${number.slice(0, 3)}-${number.slice(3, 6)}-${number.slice(6)}`;
+    } else if (number.length > 0) {
+      // Add a space after +1 for readability
+      return `+1 ${number}`;
     }
+    return '+1';
   }
-  
+
+  // General formatting for other country codes: +CC XXXXXXXX
   // Extract country code (1-3 digits after +)
-  const match = cleaned.match(/^\+(\d{1,3})(\d+)$/);
-  if (!match) {
-    // If no match, return cleaned version
-    return cleaned;
+  // Since we don't have a lookup table, we'll try to be smart
+  // Most country codes are followed by 8-11 digits
+  const match = cleaned.match(/^\+(\d{1,3})(\d*)$/);
+  if (match) {
+    const countryCode = match[1];
+    const number = match[2];
+
+    if (number) {
+      return `+${countryCode} ${number}`;
+    }
+    return `+${countryCode}`;
   }
-  
-  const countryCode = match[1];
-  const number = match[2];
-  
-  // Format: +1 987-654-3210 (for 10-digit numbers)
-  if (number.length === 10) {
-    return `+${countryCode} ${number.slice(0, 3)}-${number.slice(3, 6)}-${number.slice(6)}`;
-  } else if (number.length > 10) {
-    // For longer numbers, format first 10 digits and append rest
-    return `+${countryCode} ${number.slice(0, 3)}-${number.slice(3, 6)}-${number.slice(6, 10)}${number.slice(10)}`;
-  } else {
-    // For shorter numbers, return with country code and space
-    return `+${countryCode} ${number}`;
-  }
+
+  return cleaned;
 }
 
 export function detectInputType(input: string): 'email' | 'phone' | 'username' {
-  if (input.includes('@')) {
+  const trimmed = input.trim();
+  if (trimmed.includes('@')) {
     return 'email';
   }
-  if (input.startsWith('+') || /^\d/.test(input)) {
+  // Only detect as phone if it starts with + or is a long string of digits
+  if (trimmed.startsWith('+') || /^\d{10,}$/.test(trimmed)) {
     return 'phone';
   }
   return 'username';

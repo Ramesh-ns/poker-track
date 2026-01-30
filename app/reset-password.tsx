@@ -24,8 +24,8 @@ export default function ResetPasswordScreen() {
 
   // Handle deep link parameters and validate token
   useEffect(() => {
-    // If coming from phone OTP verification, skip deep link validation
-    if (params.fromPhone === 'true') {
+    // If coming from OTP verification (phone or email), skip deep link validation
+    if (params.fromOTP === 'true' || params.fromPhone === 'true') {
       setIsValidatingToken(false);
       return;
     }
@@ -33,23 +33,24 @@ export default function ResetPasswordScreen() {
     const processResetUrl = async (url: string) => {
       try {
         console.log('Processing reset password URL:', url);
-        
+
         // Parse the URL - Supabase sends tokens in hash fragments
         const parsed = Linking.parse(url);
-        
+
         // Extract token from hash or query params
-        // Format: pokertrack://reset-password#access_token=xxx&type=recovery
-        // Or: https://yourdomain.com/reset-password#access_token=xxx&type=recovery
-        const hash = parsed.hash || '';
+        let hash = '';
+        if (url.includes('#')) {
+          hash = url.split('#')[1] || '';
+        }
         const queryParams = parsed.queryParams || {};
-        
+
         // Also check if hash was passed as a param (from index.tsx handler)
         const hashParam = params.hash as string | undefined;
         const fullHash = hashParam || hash;
-        
+
         // Check if this is a password reset link
-        if (fullHash.includes('type=recovery') || fullHash.includes('access_token') || 
-            queryParams.type === 'recovery' || queryParams.access_token) {
+        if (fullHash.includes('type=recovery') || fullHash.includes('access_token') ||
+          queryParams.type === 'recovery' || queryParams.access_token) {
           // Supabase will automatically handle the token when updatePassword is called
           // We just need to ensure the user is on this screen
           console.log('✅ Valid password reset link detected');
@@ -76,10 +77,10 @@ export default function ResetPasswordScreen() {
       try {
         // Get the initial URL (when app opens from deep link)
         const initialUrl = await Linking.getInitialURL();
-        
+
         // Also listen for URL events (when app is already open)
         subscription = Linking.addEventListener('url', handleUrl);
-        
+
         if (initialUrl) {
           await processResetUrl(initialUrl);
         } else {
@@ -127,7 +128,7 @@ export default function ResetPasswordScreen() {
     try {
       await updatePassword(password);
       setSuccess(true);
-      
+
       // Redirect to login after a short delay
       setTimeout(() => {
         router.replace('/login');
@@ -164,8 +165,8 @@ export default function ResetPasswordScreen() {
               {success
                 ? 'Password updated successfully! Redirecting to login...'
                 : isValidatingToken
-                ? 'Validating reset link...'
-                : 'Enter your new password'}
+                  ? 'Validating reset link...'
+                  : 'Enter your new password'}
             </Text>
 
             {isValidatingToken ? (

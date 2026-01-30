@@ -13,6 +13,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   resetPasswordForPhone: (phone: string) => Promise<any>;
   verifyPhoneOTPForPasswordReset: (phone: string, token: string) => Promise<any>;
+  verifyEmailOTPForPasswordReset: (email: string, token: string) => Promise<any>;
   updatePassword: (newPassword: string) => Promise<void>;
 }
 
@@ -69,12 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear local state first
       setSession(null);
       setUser(null);
-      
+
       // Then sign out from Supabase
       await authApi.signOut();
-      
+
       console.log('AuthContext: Signout successful');
-      
+
       // Ensure state is cleared
       setSession(null);
       setUser(null);
@@ -116,6 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const verifyEmailOTPForPasswordReset = async (email: string, token: string) => {
+    setIsLoading(true);
+    try {
+      return await authApi.verifyEmailOTPForPasswordReset(email, token);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const updatePassword = async (newPassword: string) => {
     setIsLoading(true);
     try {
@@ -137,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword,
         resetPasswordForPhone,
         verifyPhoneOTPForPasswordReset,
+        verifyEmailOTPForPasswordReset,
         updatePassword,
       }}
     >

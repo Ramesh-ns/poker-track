@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, StyleSheet as RNStyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
@@ -39,7 +39,7 @@ export default function ForgotPasswordScreen() {
     }
 
     const inputType = detectInputType(identifier);
-    
+
     // Validate based on type
     if (inputType === 'email') {
       if (!isValidEmail(identifier.trim())) {
@@ -63,7 +63,7 @@ export default function ForgotPasswordScreen() {
 
     try {
       if (inputType === 'email') {
-        // Email reset flow
+        // Email reset flow - now triggers OTP flow expectation
         await resetPassword(identifier.trim());
         setSuccess(true);
       } else {
@@ -92,6 +92,11 @@ export default function ForgotPasswordScreen() {
       router.push({
         pathname: '/verify-otp-reset',
         params: { phone: resetPhone },
+      });
+    } else if (identifier && detectInputType(identifier) === 'email') {
+      router.push({
+        pathname: '/verify-otp-reset',
+        params: { email: identifier.trim() },
       });
     }
   };
@@ -131,17 +136,15 @@ export default function ForgotPasswordScreen() {
                     ? 'Please check your SMS for the verification code.'
                     : 'Please check your inbox and follow the instructions to reset your password.'}
                 </Text>
-                {resetPhone ? (
-                  <Button
-                    title="Verify Code"
-                    onPress={navigateToOTPVerification}
-                    style={styles.button}
-                  />
-                ) : null}
+                <Button
+                  title="Verify Code"
+                  onPress={navigateToOTPVerification}
+                  style={styles.button}
+                />
                 <Button
                   title="Back to Login"
                   onPress={navigateToLogin}
-                  style={[styles.button, resetPhone ? styles.secondaryButton : null]}
+                  style={RNStyleSheet.flatten([styles.button, styles.secondaryButton])}
                 />
               </View>
             ) : (
@@ -155,16 +158,16 @@ export default function ForgotPasswordScreen() {
                       inputType === 'email'
                         ? 'user@example.com'
                         : inputType === 'phone'
-                        ? '+1 987-654-3210'
-                        : 'Enter your email or phone'
+                          ? '+1 987-654-3210'
+                          : 'Enter your email or phone'
                     }
                     autoCapitalize="none"
                     keyboardType={
                       inputType === 'email'
                         ? 'email-address'
                         : inputType === 'phone'
-                        ? 'phone-pad'
-                        : 'default'
+                          ? 'phone-pad'
+                          : 'default'
                     }
                     autoComplete="username"
                     editable={!isLoading}

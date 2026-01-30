@@ -1,12 +1,13 @@
 import React, { ReactNode } from 'react';
-import { 
-  View, 
-  TextInput, 
-  Text, 
-  StyleSheet, 
-  TextInputProps, 
-  ViewStyle, 
-  TextStyle 
+import {
+  View,
+  TextInput,
+  Text,
+  StyleSheet,
+  TextInputProps,
+  ViewStyle,
+  TextStyle,
+  Platform
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 
@@ -18,20 +19,20 @@ interface InputProps extends TextInputProps {
   inputStyle?: TextStyle;
 }
 
-export function Input({ 
-  label, 
-  error, 
-  containerStyle, 
-  labelStyle, 
+export function Input({
+  label,
+  error,
+  containerStyle,
+  labelStyle,
   inputStyle,
-  ...props 
+  ...props
 }: InputProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  
+
   const textColor = isDark ? '#fff' : '#000';
-  const borderColor = error 
-    ? (isDark ? '#ff453a' : '#ff3b30') 
+  const borderColor = error
+    ? (isDark ? '#ff453a' : '#ff3b30')
     : (isDark ? '#3a3a3c' : '#c7c7cc');
   const backgroundColor = isDark ? '#1c1c1e' : '#f2f2f7';
   const placeholderColor = isDark ? '#8e8e93' : '#c7c7cc';
@@ -44,7 +45,7 @@ export function Input({
             {label}
           </Text>
         ) : (
-          <View style={[styles.label, labelStyle]}>
+          <View style={[styles.label]}>
             {label}
           </View>
         )
@@ -52,10 +53,12 @@ export function Input({
       <TextInput
         style={[
           styles.input,
-          { 
+          {
             color: textColor,
             borderColor,
             backgroundColor,
+            // Consistency fix: ensure secureTextEntry doesn't change font to monospace
+            fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
           },
           inputStyle,
         ]}
