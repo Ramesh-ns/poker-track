@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "pokertrack.app"
-               BlueprintName = "pokertrack"
-               ReferencedContainer = "container:pokertrack.xcodeproj">
+               BuildableName = "PokerTrack.app"
+               BlueprintName = "PokerTrack"
+               ReferencedContainer = "container:PokerTrack.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "pokertrackTests.xctest"
-               BlueprintName = "pokertrackTests"
-               ReferencedContainer = "container:pokertrack.xcodeproj">
+               BuildableName = "PokerTrackTests.xctest"
+               BlueprintName = "PokerTrackTests"
+               ReferencedContainer = "container:PokerTrack.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "pokertrack.app"
-            BlueprintName = "pokertrack"
-            ReferencedContainer = "container:pokertrack.xcodeproj">
+            BuildableName = "PokerTrack.app"
+            BlueprintName = "PokerTrack"
+            ReferencedContainer = "container:PokerTrack.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "pokertrack.app"
-            BlueprintName = "pokertrack"
-            ReferencedContainer = "container:pokertrack.xcodeproj">
+            BuildableName = "PokerTrack.app"
+            BlueprintName = "PokerTrack"
+            ReferencedContainer = "container:PokerTrack.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
