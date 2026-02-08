@@ -27,7 +27,7 @@ module.exports = {
     icon: './assets/images/icon.png',
     scheme: 'pokertrack',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: false,
+    newArchEnabled: true,
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.pokertrack.app',
@@ -59,7 +59,12 @@ module.exports = {
     experiments: {
       typedRoutes: true,
     },
-    // Extra configuration accessible via Constants.expoConfig.extra
+    updates: {
+      url: "https://u.expo.dev/fc300c6b-bce1-462a-b07b-3f63c777bb43"
+    },
+    runtimeVersion: {
+      policy: "appVersion"
+    },
     extra: {
       // Supabase configuration from environment variables
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
@@ -71,6 +76,7 @@ module.exports = {
         projectId: 'fc300c6b-bce1-462a-b07b-3f63c777bb43',
       },
     },
+    projectId: 'fc300c6b-bce1-462a-b07b-3f63c777bb43',
   },
 };
 
