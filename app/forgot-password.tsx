@@ -8,6 +8,7 @@ import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/Colors';
 import { detectInputType, getInputIcon, formatPhoneNumber, isValidEmail, isValidPhone } from '../lib/validation';
+import { ENABLE_PHONE_AUTH } from '../lib/auth';
 
 export default function ForgotPasswordScreen() {
   const [identifier, setIdentifier] = useState('');
@@ -23,7 +24,7 @@ export default function ForgotPasswordScreen() {
   const handleIdentifierChange = (text: string) => {
     // Auto-format phone numbers
     const inputType = detectInputType(text);
-    if (inputType === 'phone') {
+    if (ENABLE_PHONE_AUTH && inputType === 'phone') {
       const formatted = formatPhoneNumber(text);
       setIdentifier(formatted);
     } else {
@@ -46,13 +47,13 @@ export default function ForgotPasswordScreen() {
         setError('Please enter a valid email address');
         return;
       }
-    } else if (inputType === 'phone') {
+    } else if (ENABLE_PHONE_AUTH && inputType === 'phone') {
       if (!isValidPhone(identifier.trim())) {
         setError('Please enter a valid phone number with country code (e.g., +1 987-654-3210)');
         return;
       }
     } else {
-      setError('Please enter a valid email address or phone number');
+      setError(`Please enter a valid ${ENABLE_PHONE_AUTH ? 'email address or phone number' : 'email address'}`);
       return;
     }
 
@@ -123,7 +124,7 @@ export default function ForgotPasswordScreen() {
                 ? resetPhone
                   ? 'Check your phone for the verification code'
                   : 'Check your email for password reset instructions'
-                : 'Enter your email address or phone number to reset your password'}
+                : `Enter your ${ENABLE_PHONE_AUTH ? 'email address or phone number' : 'email address'} to reset your password`}
             </Text>
 
             {success ? (
@@ -151,28 +152,28 @@ export default function ForgotPasswordScreen() {
               <View style={styles.form}>
                 <View>
                   <Input
-                    label={`Email or Phone${inputIcon ? ` ${inputIcon}` : ''}`}
+                    label={`${ENABLE_PHONE_AUTH ? 'Email or Phone' : 'Email'}${inputIcon ? ` ${inputIcon}` : ''}`}
                     value={identifier}
                     onChangeText={handleIdentifierChange}
                     placeholder={
                       inputType === 'email'
                         ? 'user@example.com'
-                        : inputType === 'phone'
+                        : (ENABLE_PHONE_AUTH && inputType === 'phone')
                           ? '+1 987-654-3210'
-                          : 'Enter your email or phone'
+                          : `Enter your ${ENABLE_PHONE_AUTH ? 'email or phone' : 'email'}`
                     }
                     autoCapitalize="none"
                     keyboardType={
                       inputType === 'email'
                         ? 'email-address'
-                        : inputType === 'phone'
+                        : (ENABLE_PHONE_AUTH && inputType === 'phone')
                           ? 'phone-pad'
                           : 'default'
                     }
                     autoComplete="username"
                     editable={!isLoading}
                   />
-                  {identifier && inputType && (
+                  {identifier && inputType && (ENABLE_PHONE_AUTH || inputType !== 'phone') && (
                     <Text style={[styles.hint, { color: isDark ? '#8e8e93' : '#666' }]}>
                       {inputType === 'email' ? '📧 Email' : inputType === 'phone' ? '📱 Phone' : '👤 Username'}
                     </Text>
@@ -184,7 +185,7 @@ export default function ForgotPasswordScreen() {
                 ) : null}
 
                 <Button
-                  title={inputType === 'phone' ? 'Send Verification Code' : 'Send Reset Link'}
+                  title={(ENABLE_PHONE_AUTH && inputType === 'phone') ? 'Send Verification Code' : 'Send Reset Link'}
                   onPress={handleResetPassword}
                   disabled={isLoading}
                   style={styles.button}

@@ -11,21 +11,22 @@ import { Colors } from '../constants/Colors';
 import { isValidEmail, isValidPhone, isValidUsername, getInputIcon } from '../lib/validation';
 import { CountryCode, getDefaultCountry } from '../lib/countryCodes';
 import * as authApi from '../lib/auth';
+import { ENABLE_PHONE_AUTH } from '../lib/auth';
 
 export default function RegisterScreen() {
-  const [registrationMethod, setRegistrationMethod] = useState<'email' | 'phone'>('email');
+  const [registrationMethod, setRegistrationMethod] = useState<'email' | 'phone'>(ENABLE_PHONE_AUTH ? 'phone' : 'email');
   const [selectedCountry, setSelectedCountry] = useState<CountryCode>(getDefaultCountry());
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   // Field-level errors
   const [emailOrPhoneError, setEmailOrPhoneError] = useState('');
   const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
@@ -64,21 +65,21 @@ export default function RegisterScreen() {
       // For phone, combine country code with phone number
       // Remove all non-digits from the input
       const phoneDigits = emailOrPhone.replace(/\D/g, '');
-      
+
       // Don't check if phone is too short
       if (phoneDigits.length < 10) {
         setEmailOrPhoneError('');
         return;
       }
-      
+
       // Ensure country code doesn't have + duplicated
-      const dialCode = selectedCountry.dialCode.startsWith('+') 
-        ? selectedCountry.dialCode 
+      const dialCode = selectedCountry.dialCode.startsWith('+')
+        ? selectedCountry.dialCode
         : '+' + selectedCountry.dialCode;
-      
+
       // Combine: dialCode already has +, so just add digits
       const fullPhone = dialCode + phoneDigits;
-      
+
       if (__DEV__) {
         console.log('🔍 Phone validation - digits:', phoneDigits, 'fullPhone:', fullPhone);
       }
@@ -168,10 +169,10 @@ export default function RegisterScreen() {
   const handlePhoneChange = (text: string) => {
     // Remove all non-digits
     const digits = text.replace(/\D/g, '');
-    
+
     // Limit to reasonable length (15 digits max)
     const limitedDigits = digits.slice(0, 15);
-    
+
     // Format phone number (US format: XXX-XXX-XXXX)
     let formatted = limitedDigits;
     if (limitedDigits.length > 6) {
@@ -179,7 +180,7 @@ export default function RegisterScreen() {
     } else if (limitedDigits.length > 3) {
       formatted = `${limitedDigits.slice(0, 3)}-${limitedDigits.slice(3)}`;
     }
-    
+
     setEmailOrPhone(formatted);
     // Clear errors when user types
     setEmailOrPhoneError('');
@@ -189,13 +190,13 @@ export default function RegisterScreen() {
   const isFormValid = () => {
     // Don't enable if loading
     if (isLoading) return false;
-    
+
     // Check if all fields are filled
     if (!emailOrPhone.trim()) return false;
     if (!username.trim()) return false;
     if (!password) return false;
     if (!confirmPassword) return false;
-    
+
     // Validate email/phone format
     if (registrationMethod === 'email') {
       if (!isValidEmail(emailOrPhone.trim())) return false;
@@ -204,19 +205,19 @@ export default function RegisterScreen() {
       const fullPhone = selectedCountry.dialCode + phoneDigits;
       if (!isValidPhone(fullPhone)) return false;
     }
-    
+
     // Validate username format
     if (!isValidUsername(username.trim())) return false;
-    
+
     // Validate password length
     if (password.length < 6) return false;
-    
+
     // Validate password match
     if (password !== confirmPassword) return false;
-    
+
     // Check if there are any field errors (only if fields have been touched)
     if (emailOrPhoneError || usernameError || passwordError || confirmPasswordError) return false;
-    
+
     return true;
   };
 
@@ -278,18 +279,18 @@ export default function RegisterScreen() {
     setError('');
 
     try {
-      const cleanedEmailOrPhone = registrationMethod === 'phone' 
+      const cleanedEmailOrPhone = registrationMethod === 'phone'
         ? selectedCountry.dialCode + emailOrPhone.replace(/\D/g, '')
         : emailOrPhone.trim();
-      
+
       console.log('Attempting registration with:', {
         method: registrationMethod,
         identifier: cleanedEmailOrPhone,
         username: username.trim(),
       });
-      
+
       const result = await signUp(cleanedEmailOrPhone, password, username.trim(), registrationMethod === 'phone');
-      
+
       // Check if phone verification is needed (only if OTP verification is enabled)
       if (result && (result as any).needsVerification && registrationMethod === 'phone') {
         console.log('📱 Phone verification required');
@@ -299,16 +300,16 @@ export default function RegisterScreen() {
         // Don't clear form yet - user needs to verify
         return;
       }
-      
+
       console.log('Registration successful');
-      
+
       // Success - clear form
       setEmailOrPhone('');
       setUsername('');
       setPassword('');
       setConfirmPassword('');
       setError('');
-      
+
       // Show success popup and redirect to login
       Alert.alert(
         'Success',
@@ -334,15 +335,15 @@ export default function RegisterScreen() {
         });
         console.error('❌ Registration error:', err.message || err.error?.message || 'Failed to register. Please try again.');
       }
-      
+
       const errorMessage = err.message || err.error?.message || 'Failed to register. Please try again.';
-      
+
       // Check for phone signups disabled
       const lowerErrorMessage = errorMessage.toLowerCase();
-      if (lowerErrorMessage.includes('phone signups are disabled') || 
-          lowerErrorMessage.includes('phone signups disabled') ||
-          lowerErrorMessage.includes('phone registration is currently disabled') ||
-          lowerErrorMessage.includes('signups are disabled')) {
+      if (lowerErrorMessage.includes('phone signups are disabled') ||
+        lowerErrorMessage.includes('phone signups disabled') ||
+        lowerErrorMessage.includes('phone registration is currently disabled') ||
+        lowerErrorMessage.includes('signups are disabled')) {
         const phoneDisabledMsg = 'Phone number registration is currently disabled in Supabase. To enable it: Go to Supabase Dashboard → Authentication → Settings → Enable "Phone" provider. Or use Email registration instead.';
         console.log('🚫 PHONE SIGNUPS DISABLED - Showing error to user');
         setError(phoneDisabledMsg);
@@ -350,15 +351,15 @@ export default function RegisterScreen() {
         setIsLoading(false);
         return;
       }
-      
+
       // Set specific field errors if available (but don't duplicate with general error)
       const lowerMessage = errorMessage.toLowerCase();
       if (lowerMessage.includes('email already exists') || lowerMessage.includes('user already registered')) {
         setEmailOrPhoneError('Email already exists');
         // Don't show general error if it's a field-specific error
         setError('');
-      } else if (lowerMessage.includes('mobile number already exists') || 
-                 (lowerMessage.includes('phone') && lowerMessage.includes('already'))) {
+      } else if (lowerMessage.includes('mobile number already exists') ||
+        (lowerMessage.includes('phone') && lowerMessage.includes('already'))) {
         setEmailOrPhoneError('Mobile number already exists');
         // Don't show general error if it's a field-specific error
         setError('');
@@ -393,9 +394,9 @@ export default function RegisterScreen() {
     try {
       console.log('Verifying OTP code...');
       await authApi.verifyPhoneOTP(phoneForVerification, verificationCode.trim());
-      
+
       console.log('✅ OTP verified successfully');
-      
+
       // Clear everything and redirect to login
       setEmailOrPhone('');
       setUsername('');
@@ -405,7 +406,7 @@ export default function RegisterScreen() {
       setNeedsVerification(false);
       setPhoneForVerification('');
       setError('');
-      
+
       // Redirect to login page
       router.replace('/login');
     } catch (err: any) {
@@ -427,10 +428,10 @@ export default function RegisterScreen() {
       console.log('========================================');
       console.log('Phone:', phoneForVerification);
       console.log('========================================');
-      
+
       await authApi.resendPhoneOTP(phoneForVerification);
       setVerificationError('');
-      
+
       // Show success message
       Alert.alert('Code Sent', 'A new verification code has been sent to your phone. If you don\'t receive it, check your Supabase SMS provider configuration.');
     } catch (err: any) {
@@ -441,14 +442,14 @@ export default function RegisterScreen() {
       console.error('Error message:', err?.message);
       console.error('Error code:', err?.code);
       console.error('========================================');
-      
+
       let errorMessage = err?.message || 'Failed to resend code. Please try again.';
-      
+
       // Provide helpful error message if SMS provider is not configured
       if (err?.message?.includes('SMS') || err?.message?.includes('provider') || err?.code === 'sms_provider_not_configured') {
         errorMessage = 'SMS provider is not configured in Supabase. Please set up Twilio or another SMS provider in Supabase Dashboard → Authentication → Settings → Phone.';
       }
-      
+
       setVerificationError(errorMessage);
       Alert.alert('Resend Failed', errorMessage);
     } finally {
@@ -481,38 +482,40 @@ export default function RegisterScreen() {
 
             <View style={styles.form}>
               {/* Registration Method Toggle */}
-              <View style={styles.methodToggle}>
-                <TouchableOpacity
-                  style={[
-                    styles.methodButton,
-                    registrationMethod === 'email' && styles.methodButtonActive,
-                    { borderColor: isDark ? '#3a3a3c' : '#c7c7cc' },
-                  ]}
-                  onPress={() => {
-                    setRegistrationMethod('email');
-                    setEmailOrPhone('');
-                    setEmailOrPhoneError('');
-                    setError('');
-                  }}
-                >
-                  <Text style={[styles.methodButtonText, { color: textColor }]}>📧 Email</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.methodButton,
-                    registrationMethod === 'phone' && styles.methodButtonActive,
-                    { borderColor: isDark ? '#3a3a3c' : '#c7c7cc' },
-                  ]}
-                  onPress={() => {
-                    setRegistrationMethod('phone');
-                    setEmailOrPhone('');
-                    setEmailOrPhoneError('');
-                    setError('');
-                  }}
-                >
-                  <Text style={[styles.methodButtonText, { color: textColor }]}>📱 Mobile</Text>
-                </TouchableOpacity>
-              </View>
+              {ENABLE_PHONE_AUTH && (
+                <View style={styles.methodToggle}>
+                  <TouchableOpacity
+                    style={[
+                      styles.methodButton,
+                      registrationMethod === 'email' && styles.methodButtonActive,
+                      { borderColor: isDark ? '#3a3a3c' : '#c7c7cc' },
+                    ]}
+                    onPress={() => {
+                      setRegistrationMethod('email');
+                      setEmailOrPhone('');
+                      setEmailOrPhoneError('');
+                      setError('');
+                    }}
+                  >
+                    <Text style={[styles.methodButtonText, { color: textColor }]}>📧 Email</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.methodButton,
+                      registrationMethod === 'phone' && styles.methodButtonActive,
+                      { borderColor: isDark ? '#3a3a3c' : '#c7c7cc' },
+                    ]}
+                    onPress={() => {
+                      setRegistrationMethod('phone');
+                      setEmailOrPhone('');
+                      setEmailOrPhoneError('');
+                      setError('');
+                    }}
+                  >
+                    <Text style={[styles.methodButtonText, { color: textColor }]}>📱 Mobile</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {registrationMethod === 'phone' ? (
                 <View>
@@ -607,26 +610,26 @@ export default function RegisterScreen() {
                 error={confirmPasswordError}
               />
 
-                    {needsVerification ? (
-                      <View style={styles.verificationContainer}>
-                        <Text style={[styles.verificationTitle, { color: textColor }]}>
-                          Verify Your Phone Number
-                        </Text>
-                        <Text style={[styles.verificationSubtitle, { color: isDark ? '#8e8e93' : '#666' }]}>
-                          We sent a 6-digit code to {phoneForVerification.replace(/(\+\d{1,3})(\d{3})(\d{3})(\d{4})/, '$1 $2-$3-$4')}
-                        </Text>
-                        <View style={[styles.infoBox, { backgroundColor: isDark ? '#2c2c2e' : '#e5e5ea', borderColor: isDark ? '#3a3a3c' : '#c7c7cc' }]}>
-                          <Text style={[styles.infoText, { color: isDark ? '#8e8e93' : '#666' }]}>
-                            💡 Not receiving SMS?{'\n'}
-                            {'\n'}
-                            1. Check Supabase Dashboard → Logs → Auth Logs for OTP codes (for testing){'\n'}
-                            2. Verify Twilio Message Service SID is configured in Supabase Dashboard → Authentication → Settings → Phone{'\n'}
-                            3. For Twilio trial accounts, verify your phone number in Twilio Console → Phone Numbers → Verified Caller IDs{'\n'}
-                            4. Check Twilio Console → Monitor → Logs for SMS delivery status{'\n'}
-                            5. Try clicking "Resend Code" below
-                          </Text>
-                        </View>
-                  
+              {needsVerification ? (
+                <View style={styles.verificationContainer}>
+                  <Text style={[styles.verificationTitle, { color: textColor }]}>
+                    Verify Your Phone Number
+                  </Text>
+                  <Text style={[styles.verificationSubtitle, { color: isDark ? '#8e8e93' : '#666' }]}>
+                    We sent a 6-digit code to {phoneForVerification.replace(/(\+\d{1,3})(\d{3})(\d{3})(\d{4})/, '$1 $2-$3-$4')}
+                  </Text>
+                  <View style={[styles.infoBox, { backgroundColor: isDark ? '#2c2c2e' : '#e5e5ea', borderColor: isDark ? '#3a3a3c' : '#c7c7cc' }]}>
+                    <Text style={[styles.infoText, { color: isDark ? '#8e8e93' : '#666' }]}>
+                      💡 Not receiving SMS?{'\n'}
+                      {'\n'}
+                      1. Check Supabase Dashboard → Logs → Auth Logs for OTP codes (for testing){'\n'}
+                      2. Verify Twilio Message Service SID is configured in Supabase Dashboard → Authentication → Settings → Phone{'\n'}
+                      3. For Twilio trial accounts, verify your phone number in Twilio Console → Phone Numbers → Verified Caller IDs{'\n'}
+                      4. Check Twilio Console → Monitor → Logs for SMS delivery status{'\n'}
+                      5. Try clicking "Resend Code" below
+                    </Text>
+                  </View>
+
                   <Input
                     label="Verification Code"
                     value={verificationCode}

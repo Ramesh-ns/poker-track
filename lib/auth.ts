@@ -6,6 +6,9 @@ import { supabase } from './supabase';
 // in Supabase Dashboard → Authentication → Settings → Phone Auth
 const ENABLE_PHONE_OTP_VERIFICATION = false;
 
+// Global feature flag to enable/disable all phone authentication features
+export const ENABLE_PHONE_AUTH = false;
+
 // Helper to check if string is email or phone
 function isEmail(str: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);

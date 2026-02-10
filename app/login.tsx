@@ -8,6 +8,7 @@ import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/Colors';
 import { detectInputType, getInputIcon, formatPhoneNumber } from '../lib/validation';
+import { ENABLE_PHONE_AUTH } from '../lib/auth';
 
 export default function LoginScreen() {
   const [identifier, setIdentifier] = useState('');
@@ -22,7 +23,7 @@ export default function LoginScreen() {
   const handleIdentifierChange = (text: string) => {
     // Auto-format phone numbers
     const inputType = detectInputType(text);
-    if (inputType === 'phone') {
+    if (ENABLE_PHONE_AUTH && inputType === 'phone') {
       const formatted = formatPhoneNumber(text);
       setIdentifier(formatted);
     } else {
@@ -70,7 +71,8 @@ export default function LoginScreen() {
   const backgroundColor = isDark ? Colors.dark.background : Colors.light.background;
   const textColor = isDark ? Colors.dark.text : Colors.light.text;
   const inputType = identifier ? detectInputType(identifier) : null;
-  const inputIcon = identifier ? getInputIcon(identifier) : '';
+  const showPhoneHint = ENABLE_PHONE_AUTH && inputType === 'phone';
+  const inputIcon = (identifier && (ENABLE_PHONE_AUTH || inputType !== 'phone')) ? getInputIcon(identifier) : '';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={['top', 'bottom']}>
@@ -91,27 +93,27 @@ export default function LoginScreen() {
             <View style={styles.form}>
               <View>
                 <Input
-                  label={`Email, Phone, or Username${inputIcon ? ` ${inputIcon}` : ''}`}
+                  label={`${ENABLE_PHONE_AUTH ? 'Email, Phone, or Username' : 'Email or Username'}${inputIcon ? ` ${inputIcon}` : ''}`}
                   value={identifier}
                   onChangeText={handleIdentifierChange}
                   placeholder={
                     inputType === 'email'
                       ? 'user@example.com'
-                      : inputType === 'phone'
-                      ? '+1 987-654-3210'
-                      : 'Enter your username'
+                      : (ENABLE_PHONE_AUTH && inputType === 'phone')
+                        ? '+1 987-654-3210'
+                        : 'Enter your username'
                   }
                   autoCapitalize="none"
                   keyboardType={
                     inputType === 'email'
                       ? 'email-address'
-                      : inputType === 'phone'
-                      ? 'phone-pad'
-                      : 'default'
+                      : (ENABLE_PHONE_AUTH && inputType === 'phone')
+                        ? 'phone-pad'
+                        : 'default'
                   }
                   autoComplete="username"
                 />
-                {identifier && inputType && (
+                {identifier && inputType && (ENABLE_PHONE_AUTH || inputType !== 'phone') && (
                   <Text style={[styles.hint, { color: isDark ? '#8e8e93' : '#666' }]}>
                     {inputType === 'email' ? '📧 Email' : inputType === 'phone' ? '📱 Phone' : '👤 Username'}
                   </Text>
