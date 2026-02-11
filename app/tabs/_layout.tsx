@@ -1,6 +1,6 @@
 import { Tabs, useRouter, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme, TouchableOpacity, Text, Alert, Platform } from 'react-native';
+import { useColorScheme, TouchableOpacity, Text, Alert, Platform, View } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 import { useEffect } from 'react';
@@ -23,7 +23,7 @@ export default function TabLayout() {
 
   const handleLogout = async () => {
     console.log('🔴 LOGOUT BUTTON CLICKED - handleLogout called');
-    
+
     // On web, use direct logout without alert
     if (Platform.OS === 'web') {
       console.log('Web detected - performing direct logout');
@@ -38,7 +38,7 @@ export default function TabLayout() {
       }
       return;
     }
-    
+
     // Mobile: Use Alert
     Alert.alert(
       'Sign Out',
@@ -57,7 +57,7 @@ export default function TabLayout() {
               console.log('🔴 Alert confirmed - Starting signout...');
               await signOut();
               console.log('🔴 Signout successful, redirecting...');
-              
+
               // Force navigation
               router.replace('/login');
             } catch (error) {
@@ -88,22 +88,39 @@ export default function TabLayout() {
         },
         headerTintColor: isDark ? Colors.dark.text : Colors.light.text,
         headerRight: () => (
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🔴 LOGOUT ICON PRESSED');
-              handleLogout();
-            }}
-            onPressIn={() => console.log('🔴 LOGOUT BUTTON PRESS IN')}
-            style={{ marginRight: 16, padding: 8 }}
-            accessibilityLabel="Sign Out"
-            testID="logout-button"
-          >
-            <Ionicons
-              name="log-out-outline"
-              size={24}
-              color={isDark ? Colors.dark.text : Colors.light.text}
-            />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {/* GO PRO button hidden for initial deployment */}
+            {/* 
+            <TouchableOpacity
+              onPress={() => router.push('/subscribe')}
+              style={{
+                marginRight: 8,
+                backgroundColor: '#D4AF37',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 12
+              }}
+            >
+              <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 12 }}>GO PRO</Text>
+            </TouchableOpacity>
+            */}
+            <TouchableOpacity
+              onPress={() => {
+                console.log('🔴 LOGOUT ICON PRESSED');
+                handleLogout();
+              }}
+              onPressIn={() => console.log('🔴 LOGOUT BUTTON PRESS IN')}
+              style={{ marginRight: 16, padding: 8 }}
+              accessibilityLabel="Sign Out"
+              testID="logout-button"
+            >
+              <Ionicons
+                name="log-out-outline"
+                size={24}
+                color={isDark ? Colors.dark.text : Colors.light.text}
+              />
+            </TouchableOpacity>
+          </View>
         ),
       }}
     >
