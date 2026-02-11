@@ -32,6 +32,9 @@ module.exports = {
       supportsTablet: true,
       bundleIdentifier: 'com.pokertrack.app',
       buildNumber: '1',
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       adaptiveIcon: {
