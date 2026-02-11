@@ -57,8 +57,6 @@ export function Input({
             color: textColor,
             borderColor,
             backgroundColor,
-            // Ensure secureTextEntry doesn't fallback to a monospace font on some platforms
-            fontFamily: Platform.select({ ios: undefined, android: 'sans-serif' }),
           },
           inputStyle,
         ]}

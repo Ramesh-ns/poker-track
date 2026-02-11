@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from 'react-native';
@@ -188,6 +188,17 @@ export default function ResetPasswordScreen() {
               </View>
             ) : (
               <View style={styles.form}>
+                {/* 
+                  Sacrificial hidden input: iOS often applies special formatting (like bolding 
+                  the placeholder) to the FIRST secureTextEntry field it finds in a view. 
+                  This hidden input "absorbs" that behavior so the visible fields stay consistent.
+                */}
+                <TextInput
+                  secureTextEntry
+                  style={{ position: 'absolute', opacity: 0, height: 0, width: 0 }}
+                  editable={false}
+                  pointerEvents="none"
+                />
                 <Input
                   label="New Password"
                   value={password}
@@ -195,11 +206,11 @@ export default function ResetPasswordScreen() {
                     setPassword(text);
                     setError('');
                   }}
-                  placeholder="Enter your new password"
+                  placeholder="Enter New Password"
                   secureTextEntry
                   autoCapitalize="none"
-                  autoComplete="password-new"
-                  textContentType="newPassword"
+                  autoComplete="off"
+                  textContentType="none"
                   editable={!isLoading}
                 />
 
@@ -210,11 +221,11 @@ export default function ResetPasswordScreen() {
                     setConfirmPassword(text);
                     setError('');
                   }}
-                  placeholder="Confirm your new password"
+                  placeholder="Confirm New Password"
                   secureTextEntry
                   autoCapitalize="none"
-                  autoComplete="password-new"
-                  textContentType="newPassword"
+                  autoComplete="off"
+                  textContentType="none"
                   editable={!isLoading}
                 />
 
