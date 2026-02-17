@@ -30,7 +30,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.pokertrack.app',
+      bundleIdentifier: 'com.anonymous.poker-track',
       buildNumber: '1',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
