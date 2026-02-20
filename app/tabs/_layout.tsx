@@ -105,6 +105,17 @@ export default function TabLayout() {
             </TouchableOpacity>
             */}
             <TouchableOpacity
+              onPress={() => router.push('/settings')}
+              style={{ marginRight: 8, padding: 8 }}
+              accessibilityLabel="Settings"
+            >
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color={isDark ? Colors.dark.text : Colors.light.text}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => {
                 console.log('🔴 LOGOUT ICON PRESSED');
                 handleLogout();

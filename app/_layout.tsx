@@ -84,6 +84,14 @@ function RootLayoutNav() {
                 animation: 'slide_from_bottom'
               }}
             />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: true,
+                presentation: 'modal',
+                animation: 'slide_from_bottom'
+              }}
+            />
           </Stack>
         </PokerProvider>
       </AuthProvider>

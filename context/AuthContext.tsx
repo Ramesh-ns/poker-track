@@ -15,6 +15,7 @@ interface AuthContextType {
   verifyPhoneOTPForPasswordReset: (phone: string, token: string) => Promise<any>;
   verifyEmailOTPForPasswordReset: (email: string, token: string) => Promise<any>;
   updatePassword: (newPassword: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -135,6 +136,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteAccount = async () => {
+    setIsLoading(true);
+    try {
+      await authApi.deleteUserAccount();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -149,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifyPhoneOTPForPasswordReset,
         verifyEmailOTPForPasswordReset,
         updatePassword,
+        deleteAccount,
       }}
     >
       {children}

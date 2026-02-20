@@ -869,3 +869,29 @@ export async function updatePassword(newPassword: string) {
   return data;
 }
 
+// Delete user account and data
+export async function deleteUserAccount() {
+  console.log('🗑 Starting account deletion process...');
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('You must be logged in to delete your account.');
+  }
+
+  try {
+    // 1. Call a database function to delete the actual AUTH account.
+    // This MUST be set up in Supabase SQL Editor as a SECURITY DEFINER function.
+    const { error: rpcError } = await supabase.rpc('delete_user');
+
+    if (rpcError) {
+      console.error('❌ RPC delete_user failed:', rpcError);
+      throw new Error('Failed to delete account from server. Please contact support.');
+    }
+
+    // 2. Clear local session
+    await supabase.auth.signOut();
+    console.log('✅ Account deletion successful');
+  } catch (error) {
+    console.error('❌ Error during account deletion:', error);
+    throw error;
+  }
+}
